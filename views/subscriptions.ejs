@@ -28,7 +28,7 @@
           <td><%= s.email %></td>
           <td colspan="4">
             <form class="row" method="post" action="/admin/subscriptions/<%= s.id %>">
-              <input type="text" name="track" value="<%= s.track %>">
+              <input type="text" name="track" value="<%= s.track_id %>">
               <select name="status">
                 <option <%= s.status==='active'?'selected':'' %> value="active">active</option>
                 <option <%= s.status==='expired'?'selected':'' %> value="expired">expired</option>
