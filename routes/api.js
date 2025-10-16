@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const router = express.Router();
 
 // Use a separate JWT secret (fallback to SESSION_SECRET)
