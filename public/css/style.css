@@ -1,0 +1,75 @@
+:root{
+  --bg:#0f0f10;
+  --cardTop:rgba(0,0,0,0.15);
+  --cardBottom:rgba(0,0,0,0.65);
+  --text:#f5f5f7;
+  --textMuted:#c9c9cf;
+  --gold:#c9a03b;
+  --outline:rgba(255,255,255,0.8);
+  --searchBg:#1a1a1d;
+  --searchBorder:rgba(255,255,255,0.08);
+  --chipBg:rgba(0,0,0,0.35);
+}
+*{box-sizing:border-box}
+body.bg{background:var(--bg); color:var(--text); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0}
+a{color:var(--text); text-decoration:none}
+.layout{display:grid; grid-template-columns:260px 1fr; min-height:100vh}
+.sidebar{background:linear-gradient(180deg,var(--cardTop),var(--cardBottom)); padding:24px; border-right:1px solid var(--searchBorder); position:sticky; top:0; height:100vh}
+.brand{font-weight:700; letter-spacing:0.5px; color:var(--gold); margin-bottom:24px; font-size:20px}
+.nav{display:block; padding:12px 10px; border-radius:10px; margin-bottom:6px; opacity:0.95}
+.nav:hover{background:var(--chipBg)}
+.nav.logout{color:#ffb3b3}
+.content{padding:20px}
+.header{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px}
+.search input{background:var(--searchBg); color:var(--text); border:1px solid var(--searchBorder); border-radius:10px; padding:10px 12px; outline:none; min-width:320px}
+.admin{opacity:0.85}
+.page{display:flex; flex-direction:column; gap:16px}
+.alert{padding:10px 12px; border-radius:10px; border:1px solid var(--searchBorder); font-size:14px}
+.alert.error{background:rgba(255,80,80,0.1); color:#ffb3b3}
+.alert.success{background:rgba(80,255,80,0.1); color:#b7ffb7}
+.grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+.grid.two{grid-template-columns:repeat(2,1fr)}
+.card{background:linear-gradient(180deg,var(--cardTop),var(--cardBottom)); border:1px solid var(--searchBorder); border-radius:18px; padding:16px; box-shadow:0 4px 24px rgba(0,0,0,0.25)}
+.stat{display:flex; flex-direction:column; gap:6px}
+.stat-label{font-size:14px; color:var(--textMuted)}
+.stat-value{font-size:28px; font-weight:700}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th, td{padding:10px 8px; border-bottom:1px solid var(--searchBorder); text-align:left}
+thead th{font-weight:600; color:var(--textMuted)}
+.filters{display:flex; gap:8px; margin-bottom:12px}
+.filters input,.filters select,.filters button{background:var(--searchBg); color:var(--text); border:1px solid var(--searchBorder); padding:8px 10px; border-radius:8px}
+.login-card{max-width:420px; margin:10vh auto; background:linear-gradient(180deg,var(--cardTop),var(--cardBottom)); padding:24px; border:1px solid var(--searchBorder); border-radius:18px}
+.login-card h1{margin-top:0}
+.login-card label{display:block; margin-top:12px; margin-bottom:6px; color:var(--textMuted)}
+.login-card input{width:100%; background:var(--searchBg); color:var(--text); border:1px solid var(--searchBorder); padding:10px 12px; border-radius:10px}
+.login-card button{margin-top:16px; width:100%; background:var(--gold); border:none; color:#111; padding:12px; border-radius:10px; font-weight:700; cursor:pointer}
+.table-wrap{overflow:auto}
+@media (max-width: 960px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:relative; height:auto}
+  .grid{grid-template-columns:1fr}
+  .grid.two{grid-template-columns:1fr}
+  .search input{min-width:unset; width:100%}
+}
+
+
+.btn{background:var(--gold); color:#111; padding:8px 12px; border-radius:10px; border:none; display:inline-block; font-weight:700}
+.danger{background:#ff7575; color:#111; border:none; padding:8px 10px; border-radius:10px; cursor:pointer}
+.form-inline{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0}
+.form-inline input,.form-inline select,.form-inline button{background:var(--searchBg); color:var(--text); border:1px solid var(--searchBorder); padding:8px 10px; border-radius:8px}
+.row{display:flex; gap:8px; align-items:center}
+.flex{display:flex; gap:12px; align-items:center}
+.flex.between{justify-content:space-between}
+.pagination{display:flex; gap:10px; align-items:center; margin-top:12px}
+
+/* (append to public/css/style.css) */
+.table-wrap table input[type="text"],
+.table-wrap table input[type="number"],
+.table-wrap table select {
+  max-width: 180px;
+}
+
+.table-wrap img { display:inline-block; vertical-align:middle; }
+.form-inline input[type="file"] { max-width:260px; }
+
+

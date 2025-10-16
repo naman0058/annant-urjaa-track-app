@@ -1,0 +1,52 @@
+<%  -%>
+<div class="card">
+  <div class="flex between">
+    <h3>Subscription Report</h3>
+    <a class="btn" href="/admin/subscriptions.csv">Export CSV</a>
+  </div>
+  <form class="form-inline" method="post" action="/admin/subscriptions">
+    <input type="number" name="user_id" placeholder="User ID" required>
+    <input type="text" name="track" placeholder="Track (e.g., Gold Plan)" required>
+    <select name="status">
+      <option value="active">active</option>
+      <option value="expired">expired</option>
+      <option value="cancelled">cancelled</option>
+    </select>
+    <input type="date" name="start_date">
+    <input type="date" name="end_date">
+    <button type="submit">Add</button>
+  </form>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>User</th><th>Email</th><th>Track</th><th>Status</th><th>Start</th><th>End</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <% subs.forEach(s => { %>
+        <tr>
+          <td><%= s.id %></td>
+          <td>#<%= s.user_id %> - <%= s.user_name %></td>
+          <td><%= s.email %></td>
+          <td colspan="4">
+            <form class="row" method="post" action="/admin/subscriptions/<%= s.id %>">
+              <input type="text" name="track" value="<%= s.track %>">
+              <select name="status">
+                <option <%= s.status==='active'?'selected':'' %> value="active">active</option>
+                <option <%= s.status==='expired'?'selected':'' %> value="expired">expired</option>
+                <option <%= s.status==='cancelled'?'selected':'' %> value="cancelled">cancelled</option>
+              </select>
+              <input type="date" name="start_date" value="<%= s.start_date ? new Date(s.start_date).toISOString().slice(0,10) : '' %>">
+              <input type="date" name="end_date" value="<%= s.end_date ? new Date(s.end_date).toISOString().slice(0,10) : '' %>">
+              <button type="submit">Save</button>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="/admin/subscriptions/<%= s.id %>/delete" onsubmit="return confirm('Delete subscription?');">
+              <button type="submit" class="danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <%- include('partials/pagination', { pagination, base: '/admin/subscriptions', extra: {} }) %>
+</div>

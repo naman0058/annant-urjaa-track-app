@@ -1,0 +1,19 @@
+<%
+  const _extra = (typeof extra !== 'undefined' && extra) ? extra : {};
+  const _base  = (typeof base  !== 'undefined' && base)  ? base  : '';
+
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.limit));
+  const current    = Math.min(Math.max(1, pagination.page), totalPages);
+
+  const makeUrl = (p) => {
+    const params = new URLSearchParams(_extra);
+    params.set('page', p);
+    params.set('limit', pagination.limit);
+    return _base + '?' + params.toString();
+  };
+%>
+<div class="pagination">
+  <a class="btn" href="<%= makeUrl(Math.max(1, current-1)) %>">Prev</a>
+  <span>Page <strong><%= current %></strong> of <strong><%= totalPages %></strong></span>
+  <a class="btn" href="<%= makeUrl(Math.min(totalPages, current+1)) %>">Next</a>
+</div>

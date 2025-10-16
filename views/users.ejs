@@ -1,0 +1,38 @@
+<%  -%>
+<div class="card">
+  <h3>Registered Users</h3>
+<form class="form-inline" method="post" action="/admin/users">
+  <input type="text" name="name" placeholder="Name" required>
+  <input type="email" name="email" placeholder="Email" required>
+  <input type="password" name="password" placeholder="Password (min 6)" required>
+  <button type="submit">Add User</button>
+</form>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Email</th><th>Joined</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <% users.forEach(u => { %>
+        <tr>
+          <td><%= u.id %></td>
+          <td>
+          <form method="post" action="/admin/users/<%= u.id %>">
+  <input type="text"   name="name"  value="<%= u.name %>">
+  <input type="email"  name="email" value="<%= u.email %>">
+  <input type="password" name="password" placeholder="Set new password (optional)">
+  <button type="submit">Save</button>
+</form>
+          </td>
+          <td><%= u.email %></td>
+          <td><%= new Date(u.created_at).toLocaleString() %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Delete user? This will remove linked subscriptions.');">
+              <button type="submit" class="danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <%- include('partials/pagination', { pagination, base: '/admin/users', extra: {}  }) %>
+</div>

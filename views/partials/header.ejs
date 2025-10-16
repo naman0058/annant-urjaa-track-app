@@ -1,0 +1,10 @@
+<header class="header">
+  <div class="search">
+    <form action="/admin/transactions" method="get">
+      <input type="text" name="q" placeholder="Search transactions (order, payment, email)">
+    </form>
+  </div>
+  <div class="admin">
+    <span><%= (session && session.admin && session.admin.name) ? session.admin.name : 'Admin' %></span>
+  </div>
+</header>
