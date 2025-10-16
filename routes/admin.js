@@ -195,7 +195,7 @@ router.get('/subscriptions', requireAuth, async (req, res) => {
   try {
     const [[{ total }]] = await req.db.query('SELECT COUNT(*) AS total FROM subscriptions')
     const [rows] = await req.db.query(`
-      SELECT s.id, u.name AS user_name, u.email, s.track, s.status, s.start_date, s.end_date, s.created_at, s.user_id
+      SELECT s.id, u.name AS user_name, u.email, s.track_id, s.status, s.start_date, s.end_date, s.created_at, s.user_id
       FROM subscriptions s
       JOIN users u ON u.id = s.user_id
       ORDER BY s.created_at DESC
@@ -210,7 +210,7 @@ router.get('/subscriptions', requireAuth, async (req, res) => {
 router.get('/subscriptions.csv', requireAuth, async (req, res) => {
   try {
     const [rows] = await req.db.query(`
-      SELECT s.id, u.name AS user_name, u.email, s.track, s.status, s.start_date, s.end_date, s.created_at
+      SELECT s.id, u.name AS user_name, u.email, s.track_id, s.status, s.start_date, s.end_date, s.created_at
       FROM subscriptions s
       JOIN users u ON u.id = s.user_id
       ORDER BY s.created_at DESC
@@ -241,7 +241,7 @@ router.post('/subscriptions', requireAuth, requireRole(['super','manager']),
   async (req, res) => {
     const { user_id, track, status, start_date, end_date } = req.body
     try {
-      await req.db.query('INSERT INTO subscriptions (user_id, track, status, start_date, end_date) VALUES (:user_id, :track, :status, :start_date, :end_date)', {
+      await req.db.query('INSERT INTO subscriptions (user_id, track_id, status, start_date, end_date) VALUES (:user_id, :track, :status, :start_date, :end_date)', {
         user_id, track, status: status || 'active', start_date: start_date || null, end_date: end_date || null
       })
       req.flash('success', 'Subscription created')
@@ -253,7 +253,7 @@ router.post('/subscriptions/:id', requireAuth, requireRole(['super','manager']),
     const { id } = req.params
     const { track, status, start_date, end_date } = req.body
     try {
-      await req.db.query('UPDATE subscriptions SET track=:track, status=:status, start_date=:start_date, end_date=:end_date WHERE id=:id', {
+      await req.db.query('UPDATE subscriptions SET track_id=:track, status=:status, start_date=:start_date, end_date=:end_date WHERE id=:id', {
         id, track, status, start_date: start_date || null, end_date: end_date || null
       })
       req.flash('success', 'Subscription updated')
