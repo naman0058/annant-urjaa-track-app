@@ -1,0 +1,16 @@
+<aside class="sidebar">
+  <div class="brand">MyApp Admin</div>
+  <div class="admin" style="margin-bottom:14px; color: var(--textMuted);">
+    <small><%= (session && session.admin && session.admin.email) ? session.admin.email : '' %>
+    <%= (session && session.admin) ? '('+session.admin.role+')' : '' %></small>
+  </div>
+  <nav>
+    <a href="/admin/dashboard" class="nav">Dashboard</a>
+    <a href="/admin/users" class="nav">User Management</a>
+    <a href="/admin/subscriptions" class="nav">Subscription Report</a>
+    <a href="/admin/transactions" class="nav">Transaction Report</a>
+     <a href="/admin/categories" class="nav">Categories</a>
+  <a href="/admin/tracks" class="nav">Play Tracks</a>
+    <a href="/admin/logout" class="nav logout">Logout</a>
+  </nav>
+</aside>

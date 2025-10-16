@@ -1,0 +1,40 @@
+<div class="card">
+  <h3>Categories</h3>
+ <form class="form-inline" method="post" action="/admin/categories" enctype="multipart/form-data">
+  <input type="text" name="name" placeholder="Category name" required>
+  <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+  <button type="submit">Add Category</button>
+</form>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Slug</th><th>Created</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <% categories.forEach(c => { %>
+   <tr>
+  <td><%= c.id %></td>
+  <td colspan="2">
+    <form class="row" method="post" action="/admin/categories/<%= c.id %>" enctype="multipart/form-data">
+      <input type="text" name="name" value="<%= c.name %>" required>
+      <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+      <% if (c.thumbnail_path) { %>
+        <img src="<%= c.thumbnail_path %>" alt="" style="height:40px;border-radius:8px;margin-left:8px;">
+      <% } %>
+      <button type="submit">Save</button>
+    </form>
+    <div style="color:var(--textMuted); font-size:12px;">Slug: <%= c.slug %></div>
+  </td>
+  <td><%= new Date(c.created_at).toLocaleString() %></td>
+  <td>
+    <form method="post" action="/admin/categories/<%= c.id %>/delete" onsubmit="return confirm('Delete this category? (Only if no tracks use it)')">
+      <button type="submit" class="danger">Delete</button>
+    </form>
+  </td>
+</tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <%- include('partials/pagination', { pagination, base: '/admin/categories', extra: {} }) %>
+</div>

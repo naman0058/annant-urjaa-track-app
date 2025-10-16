@@ -1,0 +1,141 @@
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+
+<style>
+    /* Style for the loader and overlay */
+    *{
+        background-color: #0E8DF1;
+    }
+    #loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black overlay */
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      flex-direction: column; /* Stack loader and message vertically */
+    }
+  
+    #loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+  
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  
+    /* Style for the loader message */
+    #loader-message {
+      margin-top: 20px; /* Add space between loader and message */
+      color: #ffffff;
+      font-size: 16px;
+      text-align: center;
+      background-color: transparent;
+    }
+  </style>
+
+<div id="loader-overlay">
+    <div id="loader"></div>
+  
+    
+  <div id="loader-message">Please do not go back or close the application until the process is complete.</div>
+  </div>
+  
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        try {
+                        
+const loaderOverlay = document.getElementById("loader-overlay");
+
+const loader = document.getElementById("loader");
+
+loaderOverlay.style.display = "flex"; // Show overlay
+            // Function to get URL parameters
+            function getOrderDetailsFromURL() {
+                const urlParams = new URLSearchParams(window.location.search);
+                return {
+                    id: urlParams.get('order_id'),
+                    name: urlParams.get('name'),
+                    number: urlParams.get('number'),
+                    email: urlParams.get('email'),
+                    amount: urlParams.get('amount'),
+                    userid: urlParams.get('userid'),
+                    address:urlParams.get('address'),
+                    type:urlParams.get('type'),
+                    
+
+                };
+            }
+
+            // Fetch the order details from the URL parameters
+            const order = getOrderDetailsFromURL();
+           
+            if (!order.id || !order.name || !order.number || !order.email || !order.amount) {
+                throw new Error("Incomplete order details in URL parameters.");
+            }
+
+            // Proceed with the Razorpay options
+            const options = {
+                "key": "rzp_test_htmhBsjoS9btm0", // Enter the Key ID generated from the Dashboard
+                "amount": order.amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+                "currency": "INR",
+                "name": "E-Gadegt World",
+                "description": "Test Transaction",
+                "image": "/images/logo.jpg",
+                "order_id": order.id, // This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+                "handler": function(response) {
+        // Handle the response manually here
+        // You can perform an HTTP request here if needed
+        window.location.href = `/api/payment/razorpay-success?orderid=${order.id}&amount=${order.amount}&name=${order.name}&userid=${order.userid}&address=${order.address}&razorpay_payment_id=${response.razorpay_payment_id}&razorpay_signature=${response.razorpay_signature}&razorpay_order_id=${response.razorpay_order_id}&type=${order.type}`;
+    },
+                // "callback_url": `https://egadgetworld.in/payment/razorpay-response?orderid=${order.id}&amount=${order.amount}&name=${order.name}&userid=${order.userid}&address=${order.address}`,
+                // redirect: true,
+                "prefill": {
+                    "name": order.name,
+                    "email": order.email,
+                    "contact": order.number
+                },
+                "notes": {
+                    "address": "Razorpay Corporate Office"
+                },
+                "theme": {
+                    "color": "#3399cc"
+                },
+                "modal": {
+        "ondismiss": function() {
+            // This function is triggered when the payment modal is closed (cross button is clicked)
+            // alert('Payment was canceled by the user.');
+            // Optionally, you can navigate the user to a different page or take other actions
+            window.location.href = '/payment/razorpay-response'; // Example: Redirecting to a cancellation page
+        }
+    }
+            };
+
+            const rzp1 = new Razorpay(options);
+            rzp1.on('payment.failed', function (response){
+        alert(response.error.code);
+        alert(response.error.description);
+        alert(response.error.source);
+        alert(response.error.step);
+        alert(response.error.reason);
+        alert(response.error.metadata.order_id);
+        alert(response.error.metadata.payment_id);
+});
+            rzp1.open();
+        } catch (error) {
+            console.error('Error generating order', error);
+        }
+    });
+</script>

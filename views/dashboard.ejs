@@ -1,0 +1,40 @@
+<%  -%>
+<div class="grid">
+  <div class="card stat">
+    <div class="stat-label">Total Users</div>
+    <div class="stat-value"><%= stats.totalUsers %></div>
+  </div>
+  <div class="card stat">
+    <div class="stat-label">Active Subscriptions</div>
+    <div class="stat-value"><%= stats.totalSubscribers %></div>
+  </div>
+  <div class="card stat">
+    <div class="stat-label">Total Sales</div>
+    <div class="stat-value">₹<%= (stats.totalSales || 0).toLocaleString() %></div>
+  </div>
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <h3>Month-wise Subscriptions</h3>
+    <canvas id="subsChart"></canvas>
+  </div>
+  <div class="card">
+    <h3>Month-wise Sales</h3>
+    <canvas id="salesChart"></canvas>
+  </div>
+</div>
+
+<script>
+  const subsData = <%- JSON.stringify(subsMonthly) %>
+  const salesData = <%- JSON.stringify(salesMonthly) %>
+  const ymLabels = subsData.map(d => d.ym)
+  const subsCounts = subsData.map(d => d.count)
+  const salesAmounts = salesData.map(d => d.amount || 0)
+
+  const ctx1 = document.getElementById('subsChart')
+  new Chart(ctx1, { type: 'line', data: { labels: ymLabels, datasets: [{ label: 'Subscriptions', data: subsCounts }] }, options: { responsive: true } })
+
+  const ctx2 = document.getElementById('salesChart')
+  new Chart(ctx2, { type: 'bar', data: { labels: ymLabels, datasets: [{ label: 'Sales (INR)', data: salesAmounts }] }, options: { responsive: true } })
+</script>
