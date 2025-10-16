@@ -55,10 +55,10 @@ app.use(flash())
 
 // Database pool
 const pool = MySQL.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'myappdb',
+  host: process.env.DB_HOST || '31.97.227.170',
+  user: process.env.DB_USER || 'ananturjaa',
+  password: process.env.DB_PASS || 'track@Anant123#urjaa',
+  database: process.env.DB_NAME || 'itorus',
   waitForConnections: true,
   connectionLimit: 10,
   namedPlaceholders: true
