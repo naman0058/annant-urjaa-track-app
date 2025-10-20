@@ -66,7 +66,7 @@ router.get('/logout', (req, res) => { req.session.destroy(() => res.redirect('/a
 router.get('/dashboard', requireAuth, async (req, res) => {
   try {
     const [[{ totalUsers }]] = await req.db.query('SELECT COUNT(*) AS totalUsers FROM users')
-    const [[{ totalSubscribers }]] = await req.db.query('SELECT COUNT(DISTINCT user_id) AS totalSubscribers FROM subscriptions WHERE status = "active"')
+    const [[{ totalSubscribers }]] = await req.db.query('SELECT COUNT(user_id) AS totalSubscribers FROM subscriptions WHERE status = "active"')
     const [[{ totalSales }]] = await req.db.query('SELECT COALESCE(SUM(amount),0) AS totalSales FROM transactions WHERE status = "captured"')
 
     const [subsMonthly] = await req.db.query(`
