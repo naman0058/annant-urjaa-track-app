@@ -113,7 +113,7 @@ router.post('/login', async (req, res) => {
 router.get('/categories', async (req, res) => {
   try {
     const [rows] = await req.db.query(
-      'SELECT id, name, slug, thumbnail_path FROM categories ORDER BY name ASC'
+      'SELECT id, name, slug, description, thumbnail_path FROM categories ORDER BY name ASC'
     );
     res.json({ categories: rows });
   } catch (e) {

@@ -371,7 +371,7 @@ router.get('/categories', requireAuth, async (req, res) => {
   try {
     const [[{ total }]] = await req.db.query('SELECT COUNT(*) AS total FROM categories');
     const [rows] = await req.db.query(
-      'SELECT id, name, slug, created_at, thumbnail_path FROM categories ORDER BY created_at DESC LIMIT :limit OFFSET :offset',
+      'SELECT id, name, slug, description, created_at, thumbnail_path FROM categories ORDER BY created_at DESC LIMIT :limit OFFSET :offset',
       { limit, offset }
     );
     res.render('categories', { title: 'Categories', categories: rows, pagination: { page, limit, total } });
@@ -393,13 +393,14 @@ router.post(
       req.flash('error', errors.array().map(e => e.msg));
       return res.redirect('/admin/categories');
     }
-    const { name } = req.body;
+    const { name, description } = req.body;
     const slug = slugify(name);
     const thumbnail_path = req.file ? `/uploads/categories/${req.file.filename}` : null;
+
     try {
       await req.db.query(
-        'INSERT INTO categories (name, slug, thumbnail_path) VALUES (:name, :slug, :thumbnail_path)',
-        { name, slug, thumbnail_path }
+        'INSERT INTO categories (name, slug, description, thumbnail_path) VALUES (:name, :slug, :description, :thumbnail_path)',
+        { name, slug, description: description || null, thumbnail_path }
       );
       req.flash('success', 'Category created');
     } catch (e) {
@@ -410,6 +411,7 @@ router.post(
   }
 );
 
+
 router.post(
   '/categories/:id',
   requireAuth,
@@ -419,40 +421,36 @@ router.post(
   body('name').notEmpty(),
   async (req, res) => {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, description } = req.body;
     const slug = slugify(name);
 
-    let thumbnailClause = '';
-    const params = { id, name, slug };
+    try {
+      if (req.file) {
+        const [rows] = await req.db.query('SELECT thumbnail_path FROM categories WHERE id=:id', { id });
+        const old = rows[0]?.thumbnail_path || null;
+        const thumbnail_path = `/uploads/categories/${req.file.filename}`;
 
-    if (req.file) {
-      // fetch old path to delete
-      const [rows] = await req.db.query('SELECT thumbnail_path FROM categories WHERE id=:id', { id });
-      const old = rows[0]?.thumbnail_path;
-      const newPath = `/uploads/categories/${req.file.filename}`;
-      thumbnailClause = ', thumbnail_path=:thumbnail_path';
-      params.thumbnail_path = newPath;
-
-      try {
         await req.db.query(
-          `UPDATE categories SET name=:name, slug=:slug${thumbnailClause} WHERE id=:id`, params
+          `UPDATE categories
+             SET name=:name, slug=:slug, description=:description, thumbnail_path=:thumbnail_path
+           WHERE id=:id`,
+          { id, name, slug, description: description || null, thumbnail_path }
         );
+
         if (old) fs.unlink(path.join(__dirname, '..', 'public', old), () => {});
-        req.flash('success', 'Category updated');
-      } catch (e) {
-        console.error(e);
-        req.flash('error', 'Failed to update category');
-      }
-    } else {
-      try {
+      } else {
         await req.db.query(
-          `UPDATE categories SET name=:name, slug=:slug WHERE id=:id`, params
+          `UPDATE categories
+             SET name=:name, slug=:slug, description=:description
+           WHERE id=:id`,
+          { id, name, slug, description: description || null }
         );
-        req.flash('success', 'Category updated');
-      } catch (e) {
-        console.error(e);
-        req.flash('error', 'Failed to update category');
       }
+
+      req.flash('success', 'Category updated');
+    } catch (e) {
+      console.error(e);
+      req.flash('error', 'Failed to update category');
     }
     res.redirect('/admin/categories');
   }
@@ -497,10 +495,13 @@ const trackFilter = (req, file, cb) => {
   if (!isMp3 && !isImg) return cb(new Error('Invalid file type'));
   cb(null, true);
 };
+
+
+
 const uploadTrack = multer({
   storage: trackStorage,
   fileFilter: trackFilter,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+  limits: { fileSize: 200 * 1024 * 1024 } // 50MB
 });
 
 
