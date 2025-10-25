@@ -134,8 +134,7 @@ router.get('/categories/:id/tracks', async (req, res) => {
              t.mp3_path, t.created_at
       FROM tracks t
       WHERE t.category_id = :id
-      ORDER BY t.created_at DESC
-    `, { id });
+      `, { id });
 
     const payload = tracks.map(t => ({
       id: t.id,
@@ -482,6 +481,13 @@ router.get('/pay/razorpay', (req, res) => {
 const crypto = require('crypto');
 
 const RAZORPAY_KEY_SECRET  = 'uYtSO5ly2TfqM8Cxx0lCgY9t'
+
+
+router.get('/payment/razorpay-failed', async (req, res) => {
+res.json({
+  msg:'failed'
+})
+})
 
 router.get('/payment/razorpay-success', async (req, res) => {
   const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.query;
