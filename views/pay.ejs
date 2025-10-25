@@ -118,7 +118,7 @@ loaderOverlay.style.display = "flex"; // Show overlay
             // This function is triggered when the payment modal is closed (cross button is clicked)
             // alert('Payment was canceled by the user.');
             // Optionally, you can navigate the user to a different page or take other actions
-            window.location.href = '/payment/razorpay-response'; // Example: Redirecting to a cancellation page
+            window.location.href = '/api/payment/razorpay-failed'; // Example: Redirecting to a cancellation page
         }
     }
             };
