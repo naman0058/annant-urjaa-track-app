@@ -1,0 +1,81 @@
+<%- include('header.ejs') %>
+
+
+    <!-- Page Header Start -->
+    <div class="page-header bg-section parallaxie">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-12">
+                    <!-- Page Header Box Start -->
+                    <div class="page-header-box">
+                        <h1 class="text-anime-style-3" data-cursor="-opaque">Our services</h1>
+                     
+                    </div>
+                    <!-- Page Header Box End -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Page Services Start -->
+    <div class="page-services">
+        <div class="container">
+            <div class="row service-list">
+               
+               <% for(i=0;i<rows.length;i++){ %>
+<div class="col-lg-3 col-md-6">
+    <div class="service-item active wow fadeInUp service-box" style="background-image: url('https://annanturja.cloud<%=rows[i].thumbnail_path%>');">
+        <div class="service-title">
+            <h3><a href="service-single.html"><%=rows[i].name%></a></h3>
+        </div>
+
+        <!-- <div class="service-content">
+            <p><%=rows[i].description%></p>
+        </div> -->
+    </div>
+</div>
+<% } %>
+
+<style>
+    .service-box {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    padding: 30px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* dark overlay for low opacity effect */
+.service-box::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45); /* change opacity here */
+    z-index: 1;
+}
+
+.service-box * {
+    position: relative;
+    z-index: 2;
+    color: #fff; /* text stays visible */
+}
+
+</style>
+
+              
+                
+            </div>
+        </div>
+    </div>
+    <!-- Page Services End -->
+
+   
+
+    
+
+   <%- include('footer.ejs') %>
