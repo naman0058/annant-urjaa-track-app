@@ -20,6 +20,10 @@ router.get('/about',(req,res)=>{
 })
 
 
+router.get('/why-pemf',(req,res)=>{
+  res.render('whyPemf',{layout: false})
+})
+
 
 router.get('/programs',async (req,res)=>{
      const [rows] = await req.db.query('SELECT * FROM categories ')
