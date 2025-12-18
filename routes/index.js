@@ -19,6 +19,17 @@ router.get('/about',(req,res)=>{
   res.render('about',{layout: false})
 })
 
+router.get('/privacy-policy',(req,res)=>{
+  res.render('privacy_policy',{layout: false})
+})
+
+router.get('/terms-and-conditions',(req,res)=>{
+  res.render('terms_and_conditions',{layout: false})
+})
+
+
+
+
 
 router.get('/why-pemf',(req,res)=>{
   res.render('whyPemf',{layout: false})
