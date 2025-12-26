@@ -8,6 +8,24 @@
   const typeVal = (typeof type !== 'undefined' ? type : 'all');
 %>
 
+
+<style>
+  .thumbImg {
+  width: 140px;
+  height: 82px;
+  object-fit: contain; /* NOT cover */
+  border-radius: 12px;
+  border: 1px solid rgba(201,160,59,.22);
+  background: #000;
+}
+
+/* Optional: highlight GIFs */
+.thumbImg--gif {
+  image-rendering: auto;
+}
+
+</style>
+
 <div class="dash">
   <!-- HEADER -->
   <div class="dash__header">
@@ -138,7 +156,7 @@
 
         <div class="field">
           <label class="label">Thumbnail</label>
-          <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+          <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp .gif">
         </div>
 
         <div class="field">
@@ -251,17 +269,24 @@
                     <div class="mediaCard">
                       <div class="mediaHead">
                         <div class="mediaTitle">Thumbnail</div>
-                        <div class="mediaSub">.png/.jpg/.webp</div>
+                        <div class="mediaSub">.png/.jpg/.webp/.gif</div>
                       </div>
                       <div class="mediaBody">
                         <div class="thumbPrev">
-                          <% if (t.thumbnail_path) { %>
-                            <img src="https://anannturjaa.com/<%= t.thumbnail_path %>" alt="">
-                          <% } else { %>
-                            <div class="thumbEmpty">No image</div>
-                          <% } %>
+                       <% if (t.thumbnail_path) { 
+     const isGif = t.thumbnail_path.toLowerCase().endsWith('.gif');
+%>
+  <img
+    src="https://anannturjaa.com<%= t.thumbnail_path %>"
+    alt="Thumbnail"
+    class="thumbImg <%= isGif ? 'thumbImg--gif' : '' %>"
+    loading="lazy"
+  >
+<% } else { %>
+  <div class="thumbEmpty">No image</div>
+<% } %>
                         </div>
-                        <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+                        <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp,.gif">
                       </div>
                     </div>
 
