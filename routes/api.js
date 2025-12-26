@@ -110,10 +110,27 @@ router.post('/login', async (req, res) => {
 });
 
 /** ---------- GET /api/categories (public) ---------- **/
+// router.get('/categories', async (req, res) => {
+//   try {
+//     const [rows] = await req.db.query(
+//       'SELECT id, name, slug, description, thumbnail_path FROM categories ORDER BY name ASC'
+//     );
+//     res.json({ categories: rows });
+//   } catch (e) {
+//     console.error(e);
+//     res.status(500).json({ error: 'Failed to load categories' });
+//   }
+// });
+
+
 router.get('/categories', async (req, res) => {
   try {
     const [rows] = await req.db.query(
-      'SELECT id, name, slug, description, thumbnail_path FROM categories ORDER BY name ASC'
+      `
+      SELECT id, name, slug, description, thumbnail_path, sort_order
+      FROM categories
+      ORDER BY sort_order ASC, name ASC
+      `
     );
     res.json({ categories: rows });
   } catch (e) {
@@ -133,7 +150,7 @@ router.get('/categories/:id/tracks', async (req, res) => {
       SELECT t.id, t.title, t.description, t.thumbnail_path, t.price_paise, t.status,
              t.mp3_path, t.created_at
       FROM tracks t
-      WHERE t.category_id = :id
+      WHERE t.category_id = :id ORDER BY sort_order ASC, name ASC
       `, { id });
 
     const payload = tracks.map(t => ({

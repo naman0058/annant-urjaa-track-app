@@ -1,0 +1,645 @@
+<%
+  const f = filters || {};
+  const usersList = users || []; // passed from route: SELECT id,name,email FROM users
+%>
+
+<div class="dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">Master Creation</h2>
+      <div class="dash__subtitle">
+        Generate master codes with validity. When users redeem a valid code, they unlock all premium tracks & categories until expiry.
+      </div>
+    </div>
+  </div>
+
+  <!-- Create -->
+ <div class="panel panel--create">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Create Master Code</h3>
+        <div class="panel__desc">
+          Codes are unique and can be enabled/disabled. Validity is enforced at redemption and access time.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="formGrid" method="post" action="/admin/masters" autocomplete="off">
+        <!-- SEARCHABLE USER DROPDOWN -->
+        <div class="field">
+          <label class="label">Assign to Master Member</label>
+
+          <!-- UI: searchable input + hidden input that actually submits user_id -->
+          <div class="combo" id="memberCombo">
+            <input
+              id="memberSearch"
+              class="input combo__input"
+              type="text"
+              placeholder="Search user by name / email..."
+              aria-label="Search user"
+              autocomplete="off"
+              required
+            />
+            <input id="assignedUserId" type="hidden" name="assigned_member" value="" required />
+            <button type="button" class="combo__btn" id="memberClear" title="Clear" aria-label="Clear selection">×</button>
+
+            <div class="combo__dropdown" id="memberDropdown" role="listbox" aria-label="Users list">
+              <div class="combo__empty" id="memberEmpty">Type to search...</div>
+              <div class="combo__items" id="memberItems"></div>
+            </div>
+          </div>
+
+         
+        </div>
+
+        <div class="field">
+          <label class="label">Valid From</label>
+          <input class="input" type="date" name="valid_from" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Valid To</label>
+          <input class="input" type="date" name="valid_to" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Notes (optional)</label>
+          <input class="input" name="notes" placeholder="Internal note for tracking">
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Generate Code</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="panel panel--filters">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Search & Filters</h3>
+        <div class="panel__desc">Find codes by code text or assigned member. Filter by status and validity window.</div>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="filtersGrid" method="get" action="/admin/masters">
+        <div class="field">
+          <label class="label">Search</label>
+          <input class="input" name="q" value="<%= f.q || '' %>" placeholder="Search by code or member...">
+        </div>
+
+        <div class="field">
+          <label class="label">Status</label>
+          <select class="select" name="status">
+            <option value="all" <%= (f.status||'all')==='all'?'selected':'' %>>All</option>
+            <option value="active" <%= f.status==='active'?'selected':'' %>>Active</option>
+            <option value="inactive" <%= f.status==='inactive'?'selected':'' %>>Inactive</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Validity</label>
+          <select class="select" name="valid">
+            <option value="all" <%= (f.valid||'all')==='all'?'selected':'' %>>All</option>
+            <option value="valid_now" <%= f.valid==='valid_now'?'selected':'' %>>Valid now</option>
+            <option value="upcoming" <%= f.valid==='upcoming'?'selected':'' %>>Upcoming</option>
+            <option value="expired" <%= f.valid==='expired'?'selected':'' %>>Expired</option>
+          </select>
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--gold" type="submit">Apply</button>
+          <a class="btn btn--ghost" href="/admin/masters">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h3 class="panel__title">Master Codes</h3>
+        <div class="panel__desc">
+          Tip: disable a code to immediately stop future access. Existing redeemed users will also lose access if disabled.
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip">Showing: <%= (codes||[]).length %></span>
+      </div>
+    </div>
+
+    <div class="panel__body panel__body--tight">
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Member</th>
+              <th>Validity</th>
+              <th>Status</th>
+              <th>Redeemed</th>
+              <th class="tRight">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (codes || []).forEach(c => { %>
+              <tr>
+                <td class="mono">
+                  <div class="codeCell">
+                    <span class="codeText" data-code="<%= c.code %>"><%= c.code %></span>
+                    <button class="btn btn--mini btn--ghost copyBtn" type="button" data-copy="<%= c.code %>">Copy</button>
+                  </div>
+                </td>
+
+                <td>
+                  <% if (c.assigned_member) { %>
+                  <div class="memberCell">
+      <div class="memberName"><%= c.member_user_name %></div>
+      <div class="memberMeta mono"><%= c.member_user_email || '' %></div>
+      <div class="memberMeta mono">#<%= c.member_user_id %></div>
+    </div>
+                  <% } else { %>
+                    <%= c.assigned_member || '-' %>
+                  <% } %>
+                </td>
+
+                <td class="mono">
+                  <%= new Date(c.valid_from).toLocaleDateString() %> → <%= new Date(c.valid_to).toLocaleDateString() %>
+                </td>
+
+                <td>
+                  <span class="pill <%= c.status==='active'?'pill--ok':'pill--danger' %>"><%= c.status %></span>
+                </td>
+
+                <td><%= c.redeemed_count || 0 %></td>
+
+                <td class="tRight">
+                  <form class="inline" method="post" action="/admin/masters/<%= c.id %>/toggle">
+                    <button class="btn btn--ghost" type="submit">
+                      <%= c.status==='active' ? 'Disable' : 'Enable' %>
+                    </button>
+                  </form>
+
+                  <form class="inline" method="post" action="/admin/masters/<%= c.id %>/delete"
+                        onsubmit="return confirm('Delete this master code? This will also delete redemption logs.');">
+                    <button class="btn btn--danger" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+
+            <% if (!(codes||[]).length) { %>
+              <tr><td colspan="6" class="empty">No codes found.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <%- include('partials/pagination', { pagination, base: '/admin/masters', extra: filters }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // ----- USERS DATA (from server) -----
+    const USERS = <%- JSON.stringify(
+      (usersList || []).map(u => ({
+        id: Number(u.id),
+        name: String(u.name || ''),
+        email: String(u.email || ''),
+        label: `${u.name || 'User'} (${u.email || ''})`.trim()
+      }))
+    ) %>;
+
+    // ----- Combo elements -----
+    const wrap = document.getElementById('memberCombo');
+    const input = document.getElementById('memberSearch');
+    const hidden = document.getElementById('assignedUserId');
+    const dropdown = document.getElementById('memberDropdown');
+    const items = document.getElementById('memberItems');
+    const empty = document.getElementById('memberEmpty');
+    const clearBtn = document.getElementById('memberClear');
+
+    let open = false;
+    let activeIndex = -1;
+    let filtered = [];
+
+   function setOpen(v) {
+  open = !!v;
+  dropdown.style.display = open ? 'block' : 'none';
+  if (open) positionDropdown();
+  if (!open) {
+    activeIndex = -1;
+    render();
+  }
+}
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function filterUsers(q) {
+      const term = String(q || '').trim().toLowerCase();
+      if (!term) return [];
+      // match by name/email/id
+      return USERS
+        .filter(u => (
+          u.name.toLowerCase().includes(term) ||
+          u.email.toLowerCase().includes(term) ||
+          String(u.id).includes(term)
+        ))
+        .slice(0, 20);
+    }
+
+    function selectUser(u) {
+      hidden.value = String(u.id);
+      input.value = u.label;
+      input.setAttribute('data-selected', '1');
+      setOpen(false);
+    }
+
+    function clearSelection() {
+      hidden.value = '';
+      input.value = '';
+      input.removeAttribute('data-selected');
+      setOpen(false);
+      input.focus();
+    }
+
+    function render() {
+      items.innerHTML = '';
+
+      if (!open) return;
+
+      if (!filtered.length) {
+        empty.style.display = 'block';
+        empty.textContent = input.value.trim() ? 'No users found.' : 'Type to search...';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      filtered.forEach((u, idx) => {
+        const row = document.createElement('div');
+        row.className = 'comboItem' + (idx === activeIndex ? ' comboItem--active' : '');
+        row.setAttribute('role', 'option');
+        row.setAttribute('data-id', String(u.id));
+        row.innerHTML = `
+          <div class="comboItem__title">${escapeHtml(u.name || 'User')}</div>
+          <div class="comboItem__meta mono">#${u.id} • ${escapeHtml(u.email || '')}</div>
+        `;
+        row.addEventListener('mousedown', (e) => {
+          // mousedown so it selects before blur
+          e.preventDefault();
+          selectUser(u);
+        });
+        items.appendChild(row);
+      });
+    }
+
+    input.addEventListener('focus', () => {
+      setOpen(true);
+      filtered = filterUsers(input.value);
+      activeIndex = -1;
+      render();
+    });
+
+    input.addEventListener('input', () => {
+      // if user starts typing after selecting, treat as new search
+      hidden.value = '';
+      input.removeAttribute('data-selected');
+
+      setOpen(true);
+      filtered = filterUsers(input.value);
+      activeIndex = filtered.length ? 0 : -1;
+      render();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+        setOpen(true);
+        filtered = filterUsers(input.value);
+        activeIndex = filtered.length ? 0 : -1;
+        render();
+        return;
+      }
+
+      if (!open) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!filtered.length) return;
+        activeIndex = Math.min(activeIndex + 1, filtered.length - 1);
+        render();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!filtered.length) return;
+        activeIndex = Math.max(activeIndex - 1, 0);
+        render();
+      } else if (e.key === 'Enter') {
+        // select
+        if (activeIndex >= 0 && filtered[activeIndex]) {
+          e.preventDefault();
+          selectUser(filtered[activeIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+      }
+    });
+
+    // Blur -> close dropdown, but keep selected value
+    input.addEventListener('blur', () => {
+      setTimeout(() => setOpen(false), 120);
+    });
+
+    clearBtn.addEventListener('click', clearSelection);
+
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target)) setOpen(false);
+    });
+
+    // Safety: prevent submit if no user selected
+    const createForm = wrap.closest('form');
+    createForm.addEventListener('submit', (e) => {
+      if (!hidden.value) {
+        e.preventDefault();
+        alert('Please select a master member from the list.');
+        input.focus();
+      }
+    });
+
+    function positionDropdown() {
+  const rect = wrap.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const dropdownHeight = 320; // max-height used in CSS
+
+  // reset
+  dropdown.style.top = 'calc(100% + 8px)';
+  dropdown.style.bottom = 'auto';
+
+  // if not enough space below, open upward
+  if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+    dropdown.style.top = 'auto';
+    dropdown.style.bottom = 'calc(100% + 8px)';
+  }
+}
+
+    // ---- Copy code buttons ----
+    document.addEventListener('click', async (e) => {
+      const btn = e.target && e.target.closest && e.target.closest('.copyBtn');
+      if (!btn) return;
+      const val = btn.getAttribute('data-copy') || '';
+      try {
+        await navigator.clipboard.writeText(val);
+        btn.textContent = 'Copied';
+        setTimeout(() => btn.textContent = 'Copy', 900);
+      } catch (err) {
+        alert('Copy failed. Please copy manually.');
+      }
+    });
+
+    // init
+    setOpen(false);
+  })();
+
+
+
+
+</script>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F5F5F5;
+    --muted:rgba(245,245,245,.72);
+    --muted2:rgba(245,245,245,.55);
+    --gold:#C9A03B;
+    --goldSoft:rgba(201,160,59,.12);
+    --gold2:rgba(201,160,59,.14);
+    --goldBorder:rgba(201,160,59,.22);
+    --softBorder:rgba(255,255,255,.08);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --danger:#EF4444;
+    --dangerBorder:rgba(239,68,68,.35);
+    --ok: rgba(34,197,94,.85);
+  }
+  *{box-sizing:border-box}
+  .dash{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .dash__header{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .dash__title{margin:0;font-size:22px;letter-spacing:.2px}
+  .dash__subtitle{margin-top:6px;font-size:13px;color:var(--muted);max-width:980px}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--softBorder);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  /* IMPORTANT: Your .panel uses overflow:hidden which clips dropdown.
+   Allow overflow ONLY for the create panel where dropdown exists. */
+.panel--create {
+  overflow: visible !important;
+}
+
+/* If you want filters panel also to allow dropdowns later */
+.panel--filters {
+  overflow: visible;
+}
+
+/* ensure panel body allows dropdown to extend */
+.panel--create .panel__body {
+  overflow: visible !important;
+  position: relative;
+}
+
+/* combo wrapper should define stacking context */
+.combo {
+  position: relative;
+  z-index: 20; /* creates a stacking level above surrounding content */
+}
+
+/* dropdown should be higher than everything nearby */
+.combo__dropdown {
+  z-index: 99999;
+}
+
+/* if any parent uses transform/filter, z-index may behave oddly */
+.panel--create,
+.panel--create * {
+  transform: none;
+  filter: none;
+}
+
+  .panel__head--split{align-items:flex-start}
+  .panel__title{margin:0;font-size:16px;letter-spacing:.2px}
+  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+  .panel__body{padding:16px;min-width:0}
+  .panel__body--tight{padding-top:12px}
+  .panel--filters{border-color:rgba(201,160,59,.30)}
+  .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(245,245,245,.85);
+  }
+
+  .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .hint{margin-top:6px;font-size:11px;color:rgba(245,245,245,.45)}
+  .input,.select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+    min-width:0;
+  }
+  .input:focus,.select:focus{border-color:rgba(201,160,59,.55);box-shadow:0 0 0 3px rgba(201,160,59,.12)}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--softBorder);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;line-height:1;
+    cursor:pointer;white-space:nowrap;
+  }
+  .btn:hover{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.07)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--primary:hover{background:#D7B256;border-color:rgba(201,160,59,.80)}
+  .btn--gold{background:var(--gold2);border-color:rgba(201,160,59,.38)}
+  .btn--ghost{background:transparent;border-color:rgba(201,160,59,.22);color:rgba(245,245,245,.92)}
+  .btn--ghost:hover{background:rgba(201,160,59,.07)}
+  .btn--danger{background:rgba(239,68,68,.08);border-color:var(--dangerBorder);color:#FCA5A5}
+  .btn--danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.55)}
+  .btn--mini{padding:6px 10px;min-height:30px;border-radius:10px;font-size:12px}
+
+  .formGrid{
+    display:grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1.6fr auto;
+    gap:12px;
+    align-items:end;
+  }
+  .filtersGrid{
+    display:grid;
+    grid-template-columns: 1.6fr 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+  .field--actions{display:flex;gap:10px;justify-content:flex-end;align-items:end}
+
+  .tableWrap{overflow:auto}
+  .table{width:100%;border-collapse:collapse}
+  .table th,.table td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+  .table th{font-size:12px;color:rgba(245,245,245,.7);text-align:left}
+  .tRight{text-align:right}
+  .inline{display:inline}
+  .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  .empty{color:rgba(245,245,245,.65);text-align:center;padding:18px}
+
+  .pill{
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:900;
+    padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(201,160,59,.06);
+    color:rgba(245,245,245,.88);
+  }
+  .pill--ok{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.10)}
+  .pill--danger{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10)}
+
+  .pager{margin-top:12px}
+
+  /* ---- Searchable Combo ---- */
+  .combo{position:relative;min-width:0}
+  .combo__input{padding-right:42px}
+  .combo__btn{
+    position:absolute;right:10px;top:50%;
+    transform:translateY(-50%);
+    width:28px;height:28px;border-radius:10px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(245,245,245,.85);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    line-height:1;font-size:18px;
+  }
+  .combo__btn:hover{background:rgba(201,160,59,.12);border-color:rgba(201,160,59,.30)}
+  .combo__dropdown{
+    position:absolute;left:0;right:0;top:calc(100% + 8px);
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid rgba(201,160,59,.24);
+    border-radius:14px;
+    box-shadow:0 22px 60px rgba(0,0,0,.65);
+    padding:8px;
+    z-index:50;
+    display:none;
+    max-height:320px;
+    overflow:auto;
+  }
+  .combo__empty{
+    padding:10px 10px;
+    color:rgba(245,245,245,.55);
+    font-size:12px;
+  }
+  .comboItem{
+    padding:10px 10px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.06);
+    background:rgba(255,255,255,.02);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .comboItem:hover{border-color:rgba(201,160,59,.25);background:rgba(201,160,59,.06)}
+  .comboItem--active{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.10)}
+  .comboItem__title{font-size:13px;font-weight:900;color:rgba(245,245,245,.92)}
+  .comboItem__meta{font-size:12px;color:rgba(245,245,245,.55)}
+  .codeCell{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .codeText{font-weight:900}
+
+  .memberCell{display:flex;flex-direction:column;gap:4px}
+  .memberName{font-weight:900}
+  .memberMeta{color:rgba(245,245,245,.55);font-size:12px}
+
+  @media (max-width: 1100px){
+    .formGrid{grid-template-columns:1fr}
+    .filtersGrid{grid-template-columns:1fr}
+    .field--actions{justify-content:stretch}
+    .field--actions .btn{width:100%}
+  }
+</style>

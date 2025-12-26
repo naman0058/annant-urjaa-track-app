@@ -1,105 +1,782 @@
-<div class="card">
-  <h3>Play Tracks</h3>
- <form class="form-inline" method="post" action="/admin/tracks" enctype="multipart/form-data">
-  <select name="category_id" required>
-    <option value="">Select category</option>
-    <% categories.forEach(cat => { %>
-      <option value="<%= cat.id %>"><%= cat.name %></option>
-    <% }) %>
-  </select>
-  <input type="text" name="title" placeholder="Track title" required>
-  <input type="text" name="description" placeholder="Description (optional)">
-  <input type="number" step="0.01" name="price_inr" placeholder="Price (INR)" required>
-  <select name="status">
-    <option value="active">active</option>
-    <option value="inactive">inactive</option>
-  </select>
-  <!-- NEW: MP3 upload -->
- <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
-  <input type="file" name="mp3" accept=".mp3,audio/mpeg">
+<%
+  const selCat = Number(selectedCategoryId || 0);
 
-  <button type="submit">Add Track</button>
-</form>
+  // These come from res.render(...)
+  const qVal = (typeof q !== 'undefined' ? q : '');
+  const dateFromVal = (typeof date_from !== 'undefined' ? date_from : '');
+  const dateToVal = (typeof date_to !== 'undefined' ? date_to : '');
+  const typeVal = (typeof type !== 'undefined' ? type : 'all');
+%>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th><th>Title</th><th>Category</th><th>Price (₹)</th><th>Status</th><th>Created</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% tracks.forEach(t => { %>
-          <tr>
-            <td><%= t.id %></td>
-            <td colspan="4">
-             <form class="row" method="post" action="/admin/tracks/<%= t.id %>" enctype="multipart/form-data">
-  <input type="text" name="title" value="<%= t.title %>" required>
-  <select name="category_id" required>
-    <% categories.forEach(cat => { %>
-      <option value="<%= cat.id %>" <%= cat.id===t.category_id ? 'selected' : '' %>><%= cat.name %></option>
-    <% }) %>
-  </select>
-  <input type="text" name="description" value="<%= t.description || '' %>" placeholder="Description">
-  <input type="number" step="0.01" name="price_inr" value="<%= (t.price_paise/100).toFixed(2) %>" required>
-  <select name="status">
-    <option value="active" <%= t.status==='active' ? 'selected' : '' %>>active</option>
-    <option value="inactive" <%= t.status==='inactive' ? 'selected' : '' %>>inactive</option>
-  </select>
+<div class="dash">
+  <!-- HEADER -->
+  <div class="dash__header">
+    <div class="dash__titleBlock">
+      <h2 class="dash__title">Tracks</h2>
+      <div class="dash__subtitle">
+        Manage audio tracks like a modern marketplace CMS. Filter, edit, upload media, and reorder within a category.
+      </div>
+    </div>
 
-  <!-- NEW: Replace MP3 -->
- <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
-  <% if (t.thumbnail_path) { %>
-    <img src="<%= t.thumbnail_path %>" alt="" style="height:40px;border-radius:8px;">
-  <% } %>
-
-  <input type="file" name="mp3" accept=".mp3,audio/mpeg">
-  <% if (t.mp3_path) { %>
-    <audio controls style="max-width:240px; display:block;">
-      <source src="<%= t.mp3_path %>" type="audio/mpeg">
-    </audio>
-  <% } %>
-
-  <button type="submit">Save</button>
-</form>
-
-            </td>
-            <td><%= new Date(t.created_at).toLocaleString() %></td>
-            <td>
-              <form method="post" action="/admin/tracks/<%= t.id %>/delete" onsubmit="return confirm('Delete this track?')">
-                <button type="submit" class="danger">Delete</button>
-              </form>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="dash__actions">
+      <button id="btnSaveTrackOrder" class="btn btn--gold" type="button" <%= selCat ? '' : 'disabled' %>>
+        Save Order
+      </button>
+    </div>
   </div>
 
-  <%- include('partials/pagination', { pagination, base: '/admin/tracks', extra: {} }) %>
+  <!-- FILTERS BAR -->
+  <div class="panel panel--filters">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Filters</h3>
+        <div class="panel__desc">Refine the track list. Reordering is enabled only when a category is selected.</div>
+      </div>
+      <div class="chips">
+        <span class="chip">Theme: Black / Gold</span>
+        <span class="chip">Reorder: <%= selCat ? 'Enabled' : 'Disabled' %></span>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form id="filterForm" class="filters" method="get" action="/admin/tracks">
+        <!-- Search by name -->
+        <div class="field">
+          <label class="label">Search (Name)</label>
+          <div class="inputWrap">
+            <span class="icon" aria-hidden="true">⌕</span>
+            <input class="input input--withIcon" type="text" name="q" value="<%= qVal %>" placeholder="Search by track title...">
+          </div>
+        </div>
+
+        <!-- Date range -->
+        <div class="field">
+          <label class="label">Date from</label>
+          <input class="input" type="date" name="date_from" value="<%= dateFromVal %>">
+        </div>
+
+        <div class="field">
+          <label class="label">Date to</label>
+          <input class="input" type="date" name="date_to" value="<%= dateToVal %>">
+        </div>
+
+        <!-- Type -->
+        <div class="field">
+          <label class="label">Type</label>
+          <select class="select" name="type">
+            <option value="all" <%= typeVal === 'all' ? 'selected' : '' %>>All</option>
+            <option value="free" <%= typeVal === 'free' ? 'selected' : '' %>>Free</option>
+            <option value="premium" <%= typeVal === 'premium' ? 'selected' : '' %>>Premium</option>
+          </select>
+        </div>
+
+        <!-- Category -->
+        <div class="field">
+          <label class="label">Category</label>
+          <select id="catFilter" class="select" name="category_id">
+            <option value="0">All categories (view)</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat.id %>" <%= selCat === Number(cat.id) ? 'selected' : '' %>><%= cat.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <input type="hidden" name="page" value="1">
+
+        <div class="filterActions">
+          <button class="btn btn--primary" type="submit">Apply</button>
+          <a class="btn btn--ghost" href="/admin/tracks">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD NEW TRACK -->
+  <div class="panel">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Add New Track</h3>
+        <div class="panel__desc">Upload media, set category, pricing, and status.</div>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="addGrid" method="post" action="/admin/tracks" enctype="multipart/form-data">
+        <div class="field">
+          <label class="label">Category</label>
+          <select class="select" name="category_id" required style="background-color: #070707;">
+            <option value="">Select category</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat.id %>" <%= selCat === Number(cat.id) ? 'selected' : '' %>><%= cat.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Title</label>
+          <input class="input" type="text" name="title" placeholder="Track title" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Description</label>
+          <input class="input" type="text" name="description" placeholder="Optional">
+        </div>
+
+        <div class="field">
+          <label class="label">Price (INR)</label>
+          <input class="input" type="number" step="0.01" name="price_inr" placeholder="e.g., 99.00" required>
+          <div class="smallHint">0.00 = Free, anything else = Premium</div>
+        </div>
+
+        <div class="field">
+          <label class="label">Status</label>
+          <select class="select" name="status">
+            <option value="active">active</option>
+            <option value="inactive">inactive</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Thumbnail</label>
+          <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+        </div>
+
+        <div class="field">
+          <label class="label">MP3</label>
+          <input class="input" type="file" name="mp3" accept=".mp3,audio/mpeg">
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Add Track</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- REORDER + EDIT -->
+  <div class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h3 class="panel__title">Reorder & Edit Tracks</h3>
+        <div class="panel__desc">
+          <% if (selCat) { %>
+            Drag to reorder within the selected category, or edit the order number. Click <b>Save Order</b>.
+          <% } else { %>
+            Select a category to enable ordering. Ordering is saved per-category.
+          <% } %>
+        </div>
+      </div>
+
+      <div class="chips">
+        <span class="chip">Drag-and-drop: <%= selCat ? 'On' : 'Off' %></span>
+        <span class="chip">Type: <%= typeVal %></span>
+        <span class="chip">Search: <%= (qVal || '—') %></span>
+      </div>
+    </div>
+
+    <div class="panel__body panel__body--tight">
+      <% if (!selCat) { %>
+        <div class="alert">
+          <div class="alert__title">Ordering disabled</div>
+          <div class="alert__text">Choose a category in Filters to reorder tracks. Editing still works in All categories view.</div>
+        </div>
+      <% } %>
+
+      <!-- Desktop header -->
+      <div class="listHead">
+        <div class="h h--handle"></div>
+        <div class="h h--order">Order</div>
+        <div class="h h--main">Track</div>
+        <div class="h h--meta">Meta</div>
+      </div>
+
+      <div id="trackList" class="list" data-selected-category="<%= selCat %>">
+        <% tracks.forEach((t, idx) => {
+            const priceInr = Number((t.price_paise || 0) / 100);
+            const tType = priceInr <= 0 ? 'Free' : 'Premium';
+        %>
+          <article class="row" data-id="<%= t.id %>" data-category-id="<%= t.category_id %>">
+            <!-- Handle -->
+            <div class="c c--handle">
+              <button class="dragHandle" type="button" aria-label="Drag to reorder" <%= selCat ? '' : 'disabled' %>>⋮⋮</button>
+            </div>
+
+            <!-- Order -->
+            <div class="c c--order">
+              <input class="input input--order" type="number" min="1" value="<%= (t.sort_order || (idx + 1)) %>" <%= selCat ? '' : 'disabled' %>>
+              <div class="pill pill--soft pill--sm"><%= tType %></div>
+            </div>
+
+            <!-- Main -->
+            <div class="c c--main">
+              <!-- IMPORTANT: NO NESTED FORMS -->
+              <form id="delTrackForm-<%= t.id %>" method="post" action="/admin/tracks/<%= t.id %>/delete"
+                    onsubmit="return confirm('Delete this track?')"></form>
+
+              <form class="trackForm" method="post" action="/admin/tracks/<%= t.id %>" enctype="multipart/form-data" autocomplete="off">
+                <div class="editGrid">
+                  <div class="field">
+                    <label class="label">Title</label>
+                    <input class="input" type="text" name="title" value="<%= t.title %>" required>
+                  </div>
+
+                  <div class="field">
+                    <label class="label">Category</label>
+                    <select class="select" name="category_id" required>
+                      <% categories.forEach(cat => { %>
+                        <option value="<%= cat.id %>" <%= Number(cat.id)===Number(t.category_id) ? 'selected' : '' %>><%= cat.name %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label class="label">Price (INR)</label>
+                    <input class="input" type="number" step="0.01" name="price_inr" value="<%= priceInr.toFixed(2) %>" required>
+                  </div>
+
+                  <div class="field">
+                    <label class="label">Status</label>
+                    <select class="select" name="status">
+                      <option value="active" <%= t.status==='active' ? 'selected' : '' %>>active</option>
+                      <option value="inactive" <%= t.status==='inactive' ? 'selected' : '' %>>inactive</option>
+                    </select>
+                  </div>
+
+                  <div class="field field--wide">
+                    <label class="label">Description</label>
+                    <input class="input" type="text" name="description" value="<%= t.description || '' %>" placeholder="Optional">
+                  </div>
+
+                  <div class="mediaGrid">
+                    <div class="mediaCard">
+                      <div class="mediaHead">
+                        <div class="mediaTitle">Thumbnail</div>
+                        <div class="mediaSub">.png/.jpg/.webp</div>
+                      </div>
+                      <div class="mediaBody">
+                        <div class="thumbPrev">
+                          <% if (t.thumbnail_path) { %>
+                            <img src="https://anannturjaa.com/<%= t.thumbnail_path %>" alt="">
+                          <% } else { %>
+                            <div class="thumbEmpty">No image</div>
+                          <% } %>
+                        </div>
+                        <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+                      </div>
+                    </div>
+
+                    <div class="mediaCard">
+                      <div class="mediaHead">
+                        <div class="mediaTitle">Audio (MP3)</div>
+                        <div class="mediaSub">Replace if needed</div>
+                      </div>
+                      <div class="mediaBody">
+                        <% if (t.mp3_path) { %>
+                          <audio class="audio" controls>
+                            <source src="<%= t.mp3_path %>" type="audio/mpeg">
+                          </audio>
+                        <% } else { %>
+                          <div class="audioEmpty">No MP3 uploaded</div>
+                        <% } %>
+                        <input class="input" type="file" name="mp3" accept=".mp3,audio/mpeg">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="rowActions">
+                    <button class="btn btn--primary" type="submit">Save Changes</button>
+                    <button class="btn btn--danger" type="submit" form="delTrackForm-<%= t.id %>">Delete</button>
+                  </div>
+                </div>
+
+                <div class="metaLine">
+                  <span class="pill pill--soft">ID: <span class="mono"><%= t.id %></span></span>
+                  <span class="pill pill--soft">Category: <span class="mono"><%= t.category_name %></span></span>
+                  <span class="pill pill--soft">Created: <span class="mono"><%= new Date(t.created_at).toLocaleString() %></span></span>
+                </div>
+              </form>
+            </div>
+
+            <!-- Meta (desktop) -->
+            <div class="c c--meta">
+              <div class="metaBox">
+                <div class="metaLabel">Category</div>
+                <div class="mono"><%= t.category_name %></div>
+              </div>
+
+              <div class="metaBox">
+                <div class="metaLabel">Type</div>
+                <div class="pill <%= tType === 'Free' ? 'pill--ok' : 'pill--gold' %>"><%= tType %></div>
+              </div>
+
+              <div class="metaBox">
+                <div class="metaLabel">Status</div>
+                <div class="pill <%= t.status === 'active' ? 'pill--ok' : 'pill--danger' %>"><%= t.status %></div>
+              </div>
+
+              <div class="metaBox">
+                <div class="metaLabel">Created</div>
+                <div class="mono"><%= new Date(t.created_at).toLocaleString() %></div>
+              </div>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+
+      <div class="pager">
+        <%- include('partials/pagination', {
+          pagination,
+          base: '/admin/tracks',
+          extra: { q: qVal, date_from: dateFromVal, date_to: dateToVal, type: typeVal, category_id: selCat || 0 }
+        }) %>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
-document.addEventListener('change', function(e){
-  if (e.target.name === 'mp3') {
-    const file = e.target.files[0];
-    if (!file) return;
-    const audio = document.createElement('audio');
-    audio.preload = 'metadata';
-    audio.onloadedmetadata = () => {
-      const secs = Math.round(audio.duration || 0);
-      let hidden = e.target.form.querySelector('input[name="duration_sec"]');
-      if (!hidden) {
-        hidden = document.createElement('input');
-        hidden.type = 'hidden';
-        hidden.name = 'duration_sec';
-        e.target.form.appendChild(hidden);
+  (function () {
+    const list = document.getElementById('trackList');
+    const saveBtn = document.getElementById('btnSaveTrackOrder');
+    const selectedCategoryId = Number(list?.getAttribute('data-selected-category') || '0');
+
+    function getSelectedRows() {
+      if (!list) return [];
+      return Array.from(list.querySelectorAll('.row'))
+        .filter(r => Number(r.getAttribute('data-category-id')) === selectedCategoryId);
+    }
+
+    function toast(msg, ok = true) {
+      let t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.position = 'fixed';
+        t.style.right = '16px';
+        t.style.bottom = '16px';
+        t.style.maxWidth = 'min(520px, calc(100vw - 32px))';
+        t.style.padding = '10px 12px';
+        t.style.borderRadius = '12px';
+        t.style.boxShadow = '0 18px 40px rgba(0,0,0,.45)';
+        t.style.background = '#0B0B0B';
+        t.style.border = '1px solid rgba(201,160,59,.28)';
+        t.style.zIndex = 9999;
+        t.style.color = '#F5F5F5';
+        t.style.fontSize = '13px';
+        t.style.wordBreak = 'break-word';
+        document.body.appendChild(t);
       }
-      hidden.value = secs;
-      URL.revokeObjectURL(audio.src);
-    };
-    audio.src = URL.createObjectURL(file);
-  }
-});
+      t.textContent = msg;
+      t.style.borderColor = ok ? 'rgba(201,160,59,.45)' : 'rgba(220,38,38,.55)';
+      t.style.color = ok ? '#F5F5F5' : '#FCA5A5';
+      clearTimeout(window.__toastT);
+      window.__toastT = setTimeout(() => t.remove(), 2600);
+    }
+
+    function normalizeOrderInputsFromDom() {
+      const rows = getSelectedRows();
+      rows.forEach((row, i) => {
+        const input = row.querySelector('.input--order');
+        if (input) input.value = i + 1;
+      });
+    }
+
+    function sortDomByManualOrderInputs() {
+      const rows = getSelectedRows();
+      rows.sort((a, b) => {
+        const ai = parseInt(a.querySelector('.input--order')?.value || '999999', 10);
+        const bi = parseInt(b.querySelector('.input--order')?.value || '999999', 10);
+        return ai - bi;
+      });
+      rows.forEach(r => list.appendChild(r));
+      normalizeOrderInputsFromDom();
+    }
+
+    /**
+     * FIX FOR "CAN'T TYPE AFTER FILTER":
+     * Your previous Sortable config used `preventOnFilter: true` with a broad `filter`.
+     * That combination can `preventDefault()` on clicks inside inputs/selects on some browsers,
+     * which makes fields feel “not editable”.
+     *
+     * Solution:
+     * - Use ONLY `handle` (drag starts ONLY on the handle)
+     * - REMOVE `filter` and `preventOnFilter` entirely
+     */
+    if (window.Sortable && list && selectedCategoryId) {
+      new Sortable(list, {
+        draggable: '.row',
+        handle: '.dragHandle',
+        animation: 160,
+        forceFallback: true,
+        fallbackTolerance: 3,
+        delay: 120,
+        delayOnTouchOnly: true,
+        ghostClass: 'isGhost',
+        chosenClass: 'isChosen',
+        dragClass: 'isDragging',
+        onEnd: normalizeOrderInputsFromDom
+      });
+    }
+
+    // Manual order changes (only when category selected)
+    list?.addEventListener('change', (e) => {
+      if (!selectedCategoryId) return;
+      if (e.target && e.target.classList && e.target.classList.contains('input--order')) {
+        sortDomByManualOrderInputs();
+      }
+    });
+
+    // Save order
+    saveBtn?.addEventListener('click', async () => {
+      if (!selectedCategoryId) {
+        toast('Select a category to reorder tracks.', false);
+        return;
+      }
+
+      const rows = getSelectedRows();
+      const payload = rows.map((r, idx) => ({
+        id: Number(r.getAttribute('data-id')),
+        sort_order: idx + 1
+      }));
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        const resp = await fetch('/admin/tracks/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ category_id: selectedCategoryId, order: payload })
+        });
+
+        const raw = await resp.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+
+        if (!resp.ok) throw new Error(data.error || `Failed to save order (${resp.status})`);
+        toast('Track order saved successfully.');
+      } catch (err) {
+        console.error(err);
+        toast(err.message || 'Failed to save track order', false);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Order';
+      }
+    });
+
+    // MP3 duration
+    document.addEventListener('change', function(e){
+      if (e.target && e.target.name === 'mp3') {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const audio = document.createElement('audio');
+        audio.preload = 'metadata';
+        audio.onloadedmetadata = () => {
+          const secs = Math.round(audio.duration || 0);
+          let hidden = e.target.form.querySelector('input[name="duration_sec"]');
+          if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'duration_sec';
+            e.target.form.appendChild(hidden);
+          }
+          hidden.value = secs;
+          URL.revokeObjectURL(audio.src);
+        };
+        audio.src = URL.createObjectURL(file);
+      }
+    });
+  })();
 </script>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F4F4F4;
+    --muted:rgba(244,244,244,.72);
+    --muted2:rgba(244,244,244,.55);
+    --gold:#C9A03B;
+    --goldSoft:rgba(201,160,59,.12);
+    --gold2:rgba(201,160,59,.14);
+    --goldBorder:rgba(201,160,59,.22);
+    --softBorder:rgba(255,255,255,.08);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --danger:#EF4444;
+    --dangerBorder:rgba(239,68,68,.35);
+    --ok: rgba(34,197,94,.85);
+  }
+
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+
+  .dash{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .dash__header{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .dash__title{margin:0;font-size:22px;letter-spacing:.2px}
+  .dash__subtitle{margin-top:6px;font-size:13px;color:var(--muted);max-width:980px}
+  .dash__actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--softBorder);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .panel__head--split{align-items:flex-start}
+  .panel__title{margin:0;font-size:16px;letter-spacing:.2px}
+  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+  .panel__body{padding:16px;min-width:0}
+  .panel__body--tight{padding-top:12px}
+  .panel--filters{border-color:rgba(201,160,59,.30)}
+
+  .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(244,244,244,.85);
+  }
+
+  .input,.select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+    min-width:0;
+  }
+  .input:focus,.select:focus{
+    border-color:rgba(201,160,59,.55);
+    box-shadow:0 0 0 3px rgba(201,160,59,.12);
+  }
+
+  .inputWrap{position:relative}
+  .icon{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    color:rgba(244,244,244,.55);font-size:13px;pointer-events:none;
+  }
+  .input--withIcon{padding-left:34px}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--softBorder);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;line-height:1;
+    cursor:pointer;white-space:nowrap;
+    transition:transform .08s ease,border-color .15s ease,background .15s ease;
+  }
+  .btn:hover{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.07)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--primary:hover{background:#D7B256;border-color:rgba(201,160,59,.80)}
+  .btn--gold{background:var(--gold2);border-color:rgba(201,160,59,.38)}
+  .btn--ghost{background:transparent;border-color:rgba(201,160,59,.22);color:rgba(244,244,244,.92)}
+  .btn--ghost:hover{background:rgba(201,160,59,.07)}
+  .btn--danger{background:rgba(239,68,68,.08);border-color:var(--dangerBorder);color:#FCA5A5}
+  .btn--danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.55)}
+
+  .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .smallHint{font-size:11px;color:rgba(244,244,244,.45);margin-top:6px}
+  .field--actions{display:flex;justify-content:flex-end;align-items:end}
+
+  .filters{
+    display:grid;
+    grid-template-columns: 1.6fr .9fr .9fr .9fr 1.2fr auto;
+    gap:12px;
+    align-items:end;
+  }
+  .filterActions{display:flex;gap:10px;justify-content:flex-end;align-items:end}
+
+  .addGrid{
+    display:grid;
+    grid-template-columns: 1.2fr 1.4fr 1.4fr .9fr .9fr 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+
+  .alert{
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(201,160,59,.06);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:12px;
+  }
+  .alert__title{font-weight:900;font-size:13px}
+  .alert__text{margin-top:6px;color:rgba(244,244,244,.78);font-size:13px;line-height:1.35}
+
+  .listHead{
+    display:grid;
+    grid-template-columns: 56px 110px 1fr 260px;
+    gap:12px;
+    padding:0 10px 10px 10px;
+    color:var(--muted2);
+    font-size:12px;
+  }
+  .h--handle{text-align:center}
+  .list{display:flex;flex-direction:column;gap:12px}
+  .row{
+    display:grid;
+    grid-template-columns: 56px 110px 1fr 260px;
+    gap:12px;
+    padding:12px 10px;
+    border:1px solid rgba(201,160,59,.16);
+    border-radius:16px;
+    background:rgba(0,0,0,.18);
+  }
+  .c{min-width:0;display:flex;align-items:flex-start}
+  .c--order{flex-direction:column;gap:8px}
+  .c--main{flex-direction:column;gap:10px}
+  .c--meta{flex-direction:column;gap:12px}
+
+  .dragHandle{
+    width:42px;height:42px;border-radius:12px;
+    border:1px solid rgba(201,160,59,.22);
+    background:rgba(201,160,59,.10);
+    color:var(--text);
+    cursor:grab;
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;line-height:1;padding:0;
+    touch-action:none;
+  }
+  .dragHandle:active{cursor:grabbing}
+  .input--order{width:110px;text-align:center}
+
+  .trackForm{width:100%}
+  .editGrid{
+    display:grid;
+    grid-template-columns: 1fr 260px;
+    gap:12px;
+    width:100%;
+  }
+  .field--wide{grid-column:1 / -1}
+
+  .mediaGrid{
+    grid-column:1 / -1;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+  }
+  .mediaCard{
+    border:1px solid rgba(201,160,59,.14);
+    background:rgba(201,160,59,.05);
+    border-radius:14px;
+    padding:12px;
+  }
+  .mediaHead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .mediaTitle{font-weight:900;font-size:13px}
+  .mediaSub{font-size:12px;color:rgba(244,244,244,.65)}
+  .thumbPrev{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .thumbPrev img{width:140px;height:82px;object-fit:cover;border-radius:12px;border:1px solid rgba(201,160,59,.22)}
+  .thumbEmpty{
+    width:140px;height:82px;border-radius:12px;
+    border:1px dashed rgba(201,160,59,.30);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted2);font-size:12px;
+    background:rgba(0,0,0,.12);
+  }
+  .audio{width:100%;max-width:420px;display:block;margin-bottom:10px}
+  .audioEmpty{color:rgba(244,244,244,.72);font-size:13px;margin-bottom:10px}
+
+  .rowActions{
+    grid-column:1 / -1;
+    display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;
+    padding-top:4px;
+  }
+
+  .metaLine{
+    grid-column:1 / -1;
+    display:flex;gap:8px;flex-wrap:wrap;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+
+  .pill{
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:900;
+    padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(201,160,59,.06);
+    color:rgba(244,244,244,.88);
+    width: fit-content;
+  }
+  .pill--sm{padding:5px 8px;font-size:11px}
+  .pill--gold{border-color:rgba(201,160,59,.38);background:rgba(201,160,59,.12)}
+  .pill--ok{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.10)}
+  .pill--danger{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10)}
+  .pill--soft{border-color:rgba(201,160,59,.18);background:rgba(201,160,59,.06)}
+
+  .mono{
+    font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    word-break:break-word;
+  }
+
+  .metaBox{padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.12)}
+  .metaLabel{font-size:12px;color:var(--muted2);font-weight:900;margin-bottom:6px}
+
+  .pager{margin-top:12px}
+
+  /* Sortable states */
+  .isGhost{opacity:.55}
+  .isChosen{outline:2px solid rgba(201,160,59,.25)}
+  .isDragging{cursor:grabbing}
+
+  @media (max-width: 1280px){
+    .filters{grid-template-columns: 1fr 1fr 1fr 1fr 1fr;}
+    .filterActions{grid-column:1 / -1;justify-content:flex-start}
+    .addGrid{grid-template-columns:1fr 1fr 1fr 1fr}
+    .listHead,.row{grid-template-columns:56px 110px 1fr 220px}
+    .editGrid{grid-template-columns:1fr}
+    .mediaGrid{grid-template-columns:1fr}
+    .c--meta{display:none}
+  }
+
+  @media (max-width: 1024px){
+    .listHead{display:none}
+    .row{grid-template-columns:56px 110px 1fr}
+    .c--meta{display:none}
+    .rowActions{justify-content:stretch}
+    .rowActions .btn{width:100%}
+    .addGrid{grid-template-columns:1fr 1fr}
+  }
+
+  @media (max-width: 768px){
+    .filters{grid-template-columns:1fr}
+    .filterActions{justify-content:stretch}
+    .filterActions .btn{width:100%}
+
+    .addGrid{grid-template-columns:1fr}
+    .field--actions{justify-content:stretch}
+    .field--actions .btn{width:100%}
+
+    .dash__actions{width:100%}
+    #btnSaveTrackOrder{width:100%}
+  }
+
+  .dash,.panel,.panel__body,.list,.row,.c--main,.trackForm{overflow-x:hidden}
+</style>

@@ -1,40 +1,393 @@
-<%  -%>
-<div class="grid">
-  <div class="card stat">
-    <div class="stat-label">Total Users</div>
-    <div class="stat-value"><%= stats.totalUsers %></div>
-  </div>
-  <div class="card stat">
-    <div class="stat-label">Active Subscriptions</div>
-    <div class="stat-value"><%= stats.totalSubscribers %></div>
-  </div>
-  <div class="card stat">
-    <div class="stat-label">Total Sales</div>
-    <div class="stat-value">₹<%= (stats.totalSales || 0).toLocaleString() %></div>
-  </div>
-</div>
+<%
+  const f = filters || {};
+  const r = ranges || {};
+  const trackList = (typeof trackOptions !== 'undefined' && trackOptions) ? trackOptions : [];
 
-<div class="grid two">
-  <div class="card">
-    <h3>Month-wise Subscriptions</h3>
-    <canvas id="subsChart"></canvas>
-  </div>
-  <div class="card">
-    <h3>Month-wise Sales</h3>
-    <canvas id="salesChart"></canvas>
-  </div>
+  const qs = (obj) => new URLSearchParams(obj).toString();
+%>
+
+<div class="db">
+
+  <!-- HEADER -->
+  <header class="db__head">
+    <div>
+      <h1 class="db__title">Admin Dashboard</h1>
+      <div class="db__sub">
+        Showing <span class="mono"><%= r.from %></span> to <span class="mono"><%= r.to %></span>
+        (previous: <span class="mono"><%= r.prevFrom %></span> to <span class="mono"><%= r.prevTo %></span>).
+      </div>
+    </div>
+
+    <div class="db__quick">
+      <a class="chipBtn <%= f.preset==='7d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'7d' }) %>">Last 7 days</a>
+      <a class="chipBtn <%= f.preset==='30d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'30d' }) %>">Last 30 days</a>
+      <a class="chipBtn <%= f.preset==='90d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'90d' }) %>">Last 90 days</a>
+      <a class="chipBtn <%= f.preset==='this_month'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'this_month' }) %>">This month</a>
+      <a class="chipBtn <%= f.preset==='last_month'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'last_month' }) %>">Last month</a>
+      <a class="chipBtn <%= f.preset==='ytd'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'ytd' }) %>">YTD</a>
+    </div>
+  </header>
+
+  <!-- FILTER BAR -->
+  <section class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h2 class="panel__title">Filters</h2>
+        <p class="panel__desc">Use filters like large-scale commerce dashboards. Charts and tables update together.</p>
+      </div>
+
+      <div class="panel__meta">
+        <span class="pill">Days: <%= r.days %></span>
+        <span class="pill">Theme: Black / Gold</span>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="filters" method="get" action="/admin/dashboard">
+        <div class="field">
+          <label class="label">From</label>
+          <input class="input" type="date" name="from" value="<%= f.from %>">
+        </div>
+
+        <div class="field">
+          <label class="label">To</label>
+          <input class="input" type="date" name="to" value="<%= f.to %>">
+        </div>
+
+        <div class="field">
+          <label class="label">Track</label>
+          <select class="select" name="track">
+            <option value="">All tracks</option>
+           <% trackList.forEach(t => { %>
+              <option value="<%= t %>" <%= (f.track===t)?'selected':'' %>><%= t %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Subscription status</label>
+          <select class="select" name="sub_status">
+            <option value="all" <%= f.sub_status==='all'?'selected':'' %>>All</option>
+            <option value="active" <%= f.sub_status==='active'?'selected':'' %>>Active</option>
+            <option value="expired" <%= f.sub_status==='expired'?'selected':'' %>>Expired</option>
+            <option value="cancelled" <%= f.sub_status==='cancelled'?'selected':'' %>>Cancelled</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Transaction status</label>
+          <select class="select" name="tx_status">
+            <option value="all" <%= f.tx_status==='all'?'selected':'' %>>All</option>
+            <option value="captured" <%= f.tx_status==='captured'?'selected':'' %>>Captured</option>
+            <option value="created" <%= f.tx_status==='created'?'selected':'' %>>Created</option>
+            <option value="failed" <%= f.tx_status==='failed'?'selected':'' %>>Failed</option>
+            <option value="refunded" <%= f.tx_status==='refunded'?'selected':'' %>>Refunded</option>
+          </select>
+        </div>
+
+        <input type="hidden" name="preset" value="">
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Apply</button>
+          <a class="btn btn--ghost" href="/admin/dashboard">Reset</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- KPI CARDS -->
+  <section class="kpis">
+    <div class="kpi">
+      <div class="kpi__label">New Users</div>
+      <div class="kpi__value"><%= stats.totalUsers %></div>
+      <div class="kpi__foot">
+        <span class="delta <%= stats.deltas.usersPct >= 0 ? 'delta--up' : 'delta--down' %>">
+          <%= stats.deltas.usersPct >= 0 ? '+' : '' %><%= stats.deltas.usersPct %>% vs prev
+        </span>
+      </div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi__label">Subscriptions</div>
+      <div class="kpi__value"><%= stats.subsCount %></div>
+      <div class="kpi__foot">
+        <span class="delta <%= stats.deltas.subsPct >= 0 ? 'delta--up' : 'delta--down' %>">
+          <%= stats.deltas.subsPct >= 0 ? '+' : '' %><%= stats.deltas.subsPct %>% vs prev
+        </span>
+      </div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi__label">Sales</div>
+      <div class="kpi__value">₹<%= Number(stats.salesAmount || 0).toLocaleString() %></div>
+      <div class="kpi__foot">
+        <span class="delta <%= stats.deltas.salesPct >= 0 ? 'delta--up' : 'delta--down' %>">
+          <%= stats.deltas.salesPct >= 0 ? '+' : '' %><%= stats.deltas.salesPct %>% vs prev
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHARTS -->
+  <section class="grid2">
+    <div class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Subscriptions Trend</h2>
+      </div>
+      <div class="panel__body">
+        <canvas id="subsChart" height="120"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__head">
+        <h2 class="panel__title">Sales Trend</h2>
+      </div>
+      <div class="panel__body">
+        <canvas id="salesChart" height="120"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABLES -->
+  <section class="grid2">
+    <div class="panel">
+      <div class="panel__head panel__head--split">
+        <div>
+          <h2 class="panel__title">Top Tracks</h2>
+          <p class="panel__desc">Tracks ranked by subscription count in selected range.</p>
+        </div>
+      </div>
+      <div class="panel__body panel__body--tight">
+        <div class="tableWrap">
+          <table class="table">
+            <thead>
+              <tr><th>Track</th><th style="width:160px;text-align:right;">Subscriptions</th></tr>
+            </thead>
+            <tbody>
+              <% if (!topTracks || !topTracks.length) { %>
+                <tr><td colspan="2" class="empty">No data for current filters.</td></tr>
+              <% } %>
+              <% (topTracks||[]).forEach(row => { %>
+                <tr>
+                  <td><span class="mono"><%= row.track_id || '(empty)' %></span></td>
+                  <td style="text-align:right;"><%= row.cnt %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__head panel__head--split">
+        <div>
+          <h2 class="panel__title">Recent Transactions</h2>
+          <p class="panel__desc">Recent activity for the current filtered range.</p>
+        </div>
+      </div>
+      <div class="panel__body panel__body--tight">
+        <div class="tableWrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Order</th>
+                <th>Email</th>
+                <th style="width:140px;text-align:right;">Amount</th>
+                <th>Status</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!recentTxns || !recentTxns.length) { %>
+                <tr><td colspan="6" class="empty">No transactions found for current filters.</td></tr>
+              <% } %>
+              <% (recentTxns||[]).forEach(t => { %>
+                <tr>
+                  <td class="mono"><%= new Date(t.created_at).toLocaleString() %></td>
+                  <td class="mono"><%= t.order_id || '-' %></td>
+                  <td><%= t.email || '-' %></td>
+                  <td style="text-align:right;">₹<%= Number(t.amount || 0).toLocaleString() %></td>
+                  <td><span class="tag"><%= t.status %></span></td>
+                  <td><%= t.method || '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <script>
-  const subsData = <%- JSON.stringify(subsMonthly) %>
-  const salesData = <%- JSON.stringify(salesMonthly) %>
-  const ymLabels = subsData.map(d => d.ym)
-  const subsCounts = subsData.map(d => d.count)
-  const salesAmounts = salesData.map(d => d.amount || 0)
+  // Data from backend
+  const subsSeries = <%- JSON.stringify(subsSeries || []) %>;
+  const salesSeries = <%- JSON.stringify(salesSeries || []) %>;
 
-  const ctx1 = document.getElementById('subsChart')
-  new Chart(ctx1, { type: 'line', data: { labels: ymLabels, datasets: [{ label: 'Subscriptions', data: subsCounts }] }, options: { responsive: true } })
+  const labels = subsSeries.map(d => d.x);
+  const subsValues = subsSeries.map(d => Number(d.y || 0));
+  const salesValues = salesSeries.map(d => Number(d.y || 0));
 
-  const ctx2 = document.getElementById('salesChart')
-  new Chart(ctx2, { type: 'bar', data: { labels: ymLabels, datasets: [{ label: 'Sales (INR)', data: salesAmounts }] }, options: { responsive: true } })
+  // Chart.js must be loaded in your layout (recommended)
+  const s1 = document.getElementById('subsChart');
+  new Chart(s1, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Subscriptions', data: subsValues, tension: 0.25 }] },
+    options: { responsive: true, plugins: { legend: { display: true } } }
+  });
+
+  const s2 = document.getElementById('salesChart');
+  new Chart(s2, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Sales', data: salesValues }] },
+    options: { responsive: true, plugins: { legend: { display: true } } }
+  });
 </script>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F5F5F5;
+    --muted:rgba(245,245,245,.72);
+    --muted2:rgba(245,245,245,.55);
+    --gold:#C9A03B;
+    --goldBorder:rgba(201,160,59,.22);
+    --softBorder:rgba(255,255,255,.08);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --up: #22C55E;
+    --down:#EF4444;
+  }
+
+  *{box-sizing:border-box}
+  .db{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .db__head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .db__title{margin:0;font-size:22px}
+  .db__sub{margin-top:6px;font-size:13px;color:var(--muted)}
+  .db__quick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+  .chipBtn{
+    text-decoration:none;
+    font-size:12px;
+    padding:8px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.22);
+    background:rgba(201,160,59,.08);
+    color:rgba(245,245,245,.9);
+  }
+  .chipBtn--active{background:rgba(201,160,59,.18);border-color:rgba(201,160,59,.45)}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--softBorder);
+  }
+  .panel__head--split{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .panel__title{margin:0;font-size:16px}
+  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+  .panel__meta{display:flex;gap:8px;flex-wrap:wrap}
+  .panel__body{padding:16px}
+  .panel__body--tight{padding-top:12px}
+
+  .pill{
+    display:inline-flex;align-items:center;
+    font-size:12px;padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(245,245,245,.85);
+  }
+
+  .filters{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1.2fr 1.2fr 1.2fr auto;
+    gap:12px;
+    align-items:end;
+  }
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field--actions{display:flex;gap:10px;justify-content:flex-end;align-items:end}
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .input,.select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+  }
+  .input:focus,.select:focus{border-color:rgba(201,160,59,.55);box-shadow:0 0 0 3px rgba(201,160,59,.12)}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--softBorder);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;
+    cursor:pointer;white-space:nowrap;
+  }
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--ghost{border-color:rgba(201,160,59,.22)}
+
+  .kpis{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap:12px;
+  }
+  .kpi{
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(0,0,0,.18);
+    border-radius:16px;
+    padding:14px;
+    box-shadow:var(--shadow);
+  }
+  .kpi__label{color:var(--muted2);font-size:12px;font-weight:900}
+  .kpi__value{margin-top:8px;font-size:24px;font-weight:900}
+  .kpi__foot{margin-top:10px}
+  .delta{font-size:12px;font-weight:900}
+  .delta--up{color:rgba(34,197,94,.9)}
+  .delta--down{color:rgba(239,68,68,.9)}
+
+  .grid2{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:12px;
+  }
+
+  .tableWrap{overflow:auto;border-radius:14px;border:1px solid rgba(201,160,59,.14)}
+  .table{width:100%;border-collapse:collapse;min-width:720px;background:rgba(0,0,0,.14)}
+  .table th,.table td{padding:12px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+  .table th{font-size:12px;color:rgba(245,245,245,.72);text-align:left;background:rgba(0,0,0,.12)}
+  .empty{text-align:center;color:rgba(245,245,245,.7);padding:26px}
+
+  .tag{
+    display:inline-flex;align-items:center;
+    font-size:12px;padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(201,160,59,.08);
+  }
+
+  .mono{
+    font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    word-break:break-word;
+  }
+
+  @media (max-width: 1100px){
+    .filters{grid-template-columns:1fr 1fr; }
+    .field--actions{grid-column:1 / -1; justify-content:flex-start}
+    .kpis{grid-template-columns:1fr}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>

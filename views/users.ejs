@@ -1,38 +1,385 @@
-<%  -%>
-<div class="card">
-  <h3>Registered Users</h3>
-<form class="form-inline" method="post" action="/admin/users">
-  <input type="text" name="name" placeholder="Name" required>
-  <input type="email" name="email" placeholder="Email" required>
-  <input type="password" name="password" placeholder="Password (min 6)" required>
-  <button type="submit">Add User</button>
-</form>
-  <table>
-    <thead>
-      <tr><th>ID</th><th>Name</th><th>Email</th><th>Joined</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      <% users.forEach(u => { %>
-        <tr>
-          <td><%= u.id %></td>
-          <td>
-          <form method="post" action="/admin/users/<%= u.id %>">
-  <input type="text"   name="name"  value="<%= u.name %>">
-  <input type="email"  name="email" value="<%= u.email %>">
-  <input type="password" name="password" placeholder="Set new password (optional)">
-  <button type="submit">Save</button>
-</form>
-          </td>
-          <td><%= u.email %></td>
-          <td><%= new Date(u.created_at).toLocaleString() %></td>
-          <td>
-            <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Delete user? This will remove linked subscriptions.');">
-              <button type="submit" class="danger">Delete</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-  <%- include('partials/pagination', { pagination, base: '/admin/users', extra: {}  }) %>
+<%
+  // Expected from controller:
+  // users: [{id,name,email,created_at}]
+  // pagination: { page, limit, total }
+  // filters: { q, from, to, sort, dir, limit }
+  const f = filters || {};
+  const qVal = (f.q || '');
+  const fromVal = (f.from || '');
+  const toVal = (f.to || '');
+  const sortVal = (f.sort || 'created_at');
+  const dirVal = (f.dir || 'desc');
+  const limitVal = Number(pagination?.limit || 20);
+
+  const qsBase = new URLSearchParams({
+    q: qVal,
+    from: fromVal,
+    to: toVal,
+    sort: sortVal,
+    dir: dirVal,
+    limit: String(limitVal)
+  }).toString();
+%>
+
+<div class="dash">
+  <!-- HEADER -->
+  <div class="dash__header">
+    <div class="dash__titleBlock">
+      <h2 class="dash__title">Users</h2>
+      <div class="dash__subtitle">
+        Manage registered users with enterprise-grade filtering, quick edits, and exports.
+      </div>
+    </div>
+
+    <div class="dash__actions">
+      <a class="btn btn--ghost" href="/admin/users.csv?<%= qsBase %>">Export CSV</a>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="panel panel--filters">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Search & Filters</h3>
+        <div class="panel__desc">Search by name/email and refine by join date. Sorting and pagination preserve filters.</div>
+      </div>
+      <div class="chips">
+        <span class="chip">Theme: Black / Gold</span>
+        <span class="chip">Total: <%= pagination?.total || 0 %></span>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="filters" method="get" action="/admin/users">
+        <div class="field">
+          <label class="label">Search</label>
+          <div class="inputWrap">
+            <span class="icon" aria-hidden="true">⌕</span>
+            <input class="input input--withIcon" type="text" name="q" value="<%= qVal %>"
+                   placeholder="Search by name or email...">
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Joined from</label>
+          <input class="input" type="date" name="from" value="<%= fromVal %>">
+        </div>
+
+        <div class="field">
+          <label class="label">Joined to</label>
+          <input class="input" type="date" name="to" value="<%= toVal %>">
+        </div>
+
+        <div class="field">
+          <label class="label">Sort</label>
+          <select class="select" name="sort">
+            <option value="created_at" <%= sortVal==='created_at'?'selected':'' %>>Joined Date</option>
+            <option value="name" <%= sortVal==='name'?'selected':'' %>>Name</option>
+            <option value="email" <%= sortVal==='email'?'selected':'' %>>Email</option>
+            <option value="id" <%= sortVal==='id'?'selected':'' %>>User ID</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Direction</label>
+          <select class="select" name="dir">
+            <option value="desc" <%= dirVal==='desc'?'selected':'' %>>DESC</option>
+            <option value="asc" <%= dirVal==='asc'?'selected':'' %>>ASC</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Per page</label>
+          <select class="select" name="limit">
+            <% [10,20,50,100].forEach(n => { %>
+              <option value="<%= n %>" <%= Number(limitVal)===n?'selected':'' %>><%= n %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <input type="hidden" name="page" value="1">
+
+        <div class="filterActions">
+          <button class="btn btn--primary" type="submit">Apply</button>
+          <a class="btn btn--ghost" href="/admin/users">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD USER -->
+  <div class="panel">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Add User</h3>
+        <div class="panel__desc">Create a new user account (admin-only).</div>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="addGrid" method="post" action="/admin/users">
+        <div class="field">
+          <label class="label">Name</label>
+          <input class="input" type="text" name="name" placeholder="Full name" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Email</label>
+          <input class="input" type="email" name="email" placeholder="user@example.com" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Password</label>
+          <input class="input" type="password" name="password" placeholder="Min 6 chars" required>
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Add User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h3 class="panel__title">Registered Users</h3>
+        <div class="panel__desc">Quick edit user details. Leave password empty to keep it unchanged.</div>
+      </div>
+
+      <div class="chips">
+        <span class="chip">Page: <%= pagination.page %></span>
+        <span class="chip">Limit: <%= pagination.limit %></span>
+      </div>
+    </div>
+
+    <div class="panel__body panel__body--tight">
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:90px">ID</th>
+              <th>User</th>
+              <th style="width:220px">Joined</th>
+              <th style="width:180px; text-align:right;">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <% if (!users || !users.length) { %>
+              <tr>
+                <td colspan="4" class="empty">No users found for current filters.</td>
+              </tr>
+            <% } %>
+
+            <% (users || []).forEach(u => { %>
+              <tr>
+                <td class="mono">#<%= u.id %></td>
+
+                <td>
+                  <form class="rowForm" method="post" action="/admin/users/<%= u.id %>?<%= qsBase %>">
+                    <div class="rowGrid">
+                      <div class="field">
+                        <label class="label label--sm">Name</label>
+                        <input class="input" type="text" name="name" value="<%= u.name %>" required>
+                      </div>
+
+                      <div class="field">
+                        <label class="label label--sm">Email</label>
+                        <input class="input" type="email" name="email" value="<%= u.email %>" required>
+                      </div>
+
+                      <div class="field">
+                        <label class="label label--sm">New password</label>
+                        <input class="input" type="password" name="password" placeholder="Optional">
+                      </div>
+                    </div>
+
+                    <div class="rowActions">
+                      <button class="btn btn--primary" type="submit">Save</button>
+                    </div>
+                  </form>
+                </td>
+
+                <td class="mono"><%= new Date(u.created_at).toLocaleString() %></td>
+
+                <td style="text-align:right;">
+                  <form method="post"
+                        action="/admin/users/<%= u.id %>/delete?<%= qsBase %>"
+                        onsubmit="return confirm('Delete user? This may remove linked subscriptions.');"
+                        style="display:inline-block;">
+                    <button type="submit" class="btn btn--danger">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <%- include('partials/pagination', { pagination, base: '/admin/users', extra: { q: qVal, from: fromVal, to: toVal, sort: sortVal, dir: dirVal, limit: limitVal } }) %>
+      </div>
+    </div>
+  </div>
 </div>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F4F4F4;
+    --muted:rgba(244,244,244,.72);
+    --muted2:rgba(244,244,244,.55);
+    --gold:#C9A03B;
+    --goldSoft:rgba(201,160,59,.12);
+    --gold2:rgba(201,160,59,.14);
+    --goldBorder:rgba(201,160,59,.22);
+    --softBorder:rgba(255,255,255,.08);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --danger:#EF4444;
+    --dangerBorder:rgba(239,68,68,.35);
+  }
+
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+
+  .dash{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .dash__header{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .dash__title{margin:0;font-size:22px;letter-spacing:.2px}
+  .dash__subtitle{margin-top:6px;font-size:13px;color:var(--muted);max-width:980px}
+  .dash__actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--softBorder);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .panel__head--split{align-items:flex-start}
+  .panel__title{margin:0;font-size:16px;letter-spacing:.2px}
+  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+  .panel__body{padding:16px;min-width:0}
+  .panel__body--tight{padding-top:12px}
+  .panel--filters{border-color:rgba(201,160,59,.30)}
+
+  .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(244,244,244,.85);
+  }
+
+  .input,.select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+    min-width:0;
+  }
+  .input:focus,.select:focus{
+    border-color:rgba(201,160,59,.55);
+    box-shadow:0 0 0 3px rgba(201,160,59,.12);
+  }
+  .inputWrap{position:relative}
+  .icon{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    color:rgba(244,244,244,.55);font-size:13px;pointer-events:none;
+  }
+  .input--withIcon{padding-left:34px}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--softBorder);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;line-height:1;
+    cursor:pointer;white-space:nowrap;
+    transition:transform .08s ease,border-color .15s ease,background .15s ease;
+  }
+  .btn:hover{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.07)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--primary:hover{background:#D7B256;border-color:rgba(201,160,59,.80)}
+  .btn--ghost{background:transparent;border-color:rgba(201,160,59,.22);color:rgba(244,244,244,.92)}
+  .btn--ghost:hover{background:rgba(201,160,59,.07)}
+  .btn--danger{background:rgba(239,68,68,.08);border-color:var(--dangerBorder);color:#FCA5A5}
+  .btn--danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.55)}
+
+  .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .field--actions{display:flex;justify-content:flex-end;align-items:end}
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .label--sm{font-size:11px}
+  .filters{
+    display:grid;
+    grid-template-columns: 1.6fr .9fr .9fr 1fr .8fr .8fr auto;
+    gap:12px;
+    align-items:end;
+  }
+  .filterActions{display:flex;gap:10px;justify-content:flex-end;align-items:end}
+
+  .addGrid{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+
+  .tableWrap{overflow:auto;border-radius:14px;border:1px solid rgba(201,160,59,.14)}
+  .table{width:100%;border-collapse:collapse;min-width:980px;background:rgba(0,0,0,.14)}
+  .table th,.table td{padding:12px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+  .table th{font-size:12px;color:rgba(244,244,244,.72);text-align:left;background:rgba(0,0,0,.12)}
+  .empty{text-align:center;color:rgba(244,244,244,.7);padding:26px}
+
+  .rowForm{width:100%}
+  .rowGrid{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap:12px;
+    min-width:0;
+  }
+  .rowActions{margin-top:10px;display:flex;justify-content:flex-end}
+
+  .mono{
+    font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    word-break:break-word;
+  }
+
+  @media (max-width: 1200px){
+    .filters{grid-template-columns: 1fr 1fr 1fr 1fr;}
+    .filterActions{grid-column:1 / -1;justify-content:flex-start}
+    .addGrid{grid-template-columns:1fr 1fr}
+    .rowGrid{grid-template-columns:1fr}
+  }
+  @media (max-width: 768px){
+    .filters{grid-template-columns:1fr}
+    .filterActions{justify-content:stretch}
+    .filterActions .btn{width:100%}
+    .addGrid{grid-template-columns:1fr}
+    .field--actions{justify-content:stretch}
+    .field--actions .btn{width:100%}
+    .dash__actions{width:100%}
+    .btn--ghost{width:100%}
+  }
+</style>
