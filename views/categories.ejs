@@ -1,58 +1,522 @@
-<div class="card">
-  <h3>Categories</h3>
+<%
+// categories expected: [{ id, name, description, thumbnail_path, sort_order, slug }]
+// pagination expected
+%>
 
-  <form class="form-inline" method="post" action="/admin/categories" enctype="multipart/form-data">
-    <input type="text" name="name" placeholder="Category name" required>
-    <input type="text" name="description" placeholder="Description (optional)">
-    <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
-    <button type="submit">Add Category</button>
-  </form>
+<div class="cms">
+  <!-- HEADER -->
+  <header class="cms__header">
+    <div class="cms__titleBlock">
+      <h1 class="cms__title">Categories</h1>
+      <p class="cms__subtitle">Create, update, and reorder categories across the app. Changes reflect in dashboard, frontend, and API.</p>
+    </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th style="min-width:420px;">Name & Description</th>
-        <th>Slug</th>
-        <th>Created</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% categories.forEach(c => { %>
-        <tr>
-          <td><%= c.id %></td>
+    <div class="cms__headerActions">
+      <button id="btnSaveOrder" class="btn btn--gold" type="button">
+        Save Order
+      </button>
+    </div>
+  </header>
 
-          <td>
-            <form class="row" method="post" action="/admin/categories/<%= c.id %>" enctype="multipart/form-data">
-              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <input type="text" name="name" value="<%= c.name %>" required placeholder="Name">
-                <input type="text" name="description" value="<%= c.description || '' %>" placeholder="Description (optional)" style="min-width:260px;">
-                <input type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
-                <% if (c.thumbnail_path) { %>
-                  <img src="<%= c.thumbnail_path %>" alt="" style="height:40px;border-radius:8px;margin-left:8px;">
-                <% } %>
-                <button type="submit">Save</button>
-              </div>
-            </form>
-            <div style="color:var(--textMuted); font-size:12px; margin-top:4px;">
-              Slug: <%= c.slug %>
+  <!-- ADD CATEGORY -->
+  <section class="panel">
+    <div class="panel__head">
+      <div>
+        <h2 class="panel__title">Add Category</h2>
+        <p class="panel__desc">New categories are appended at the end of the current order.</p>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="formAdd" method="post" action="/admin/categories" enctype="multipart/form-data" autocomplete="off">
+        <div class="field">
+          <label class="label">Category name</label>
+          <input class="input" type="text" name="name" placeholder="e.g., Web Development" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Description (optional)</label>
+          <input class="input" type="text" name="description" placeholder="Short summary shown in UI">
+        </div>
+
+        <div class="field">
+          <label class="label">Thumbnail (optional)</label>
+          <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Add Category</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- LIST + EDIT + REORDER -->
+  <section class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h2 class="panel__title">Manage Categories</h2>
+        <p class="panel__desc">
+          Drag the handle to reorder. You can also change the order number. Click <b>Save Order</b> to persist.
+        </p>
+      </div>
+
+      <div class="panel__meta">
+        <span class="pill pill--soft">Theme: Black / Gold</span>
+        <span class="pill pill--soft">Total: <%= (categories || []).length %></span>
+      </div>
+    </div>
+
+    <div class="panel__body panel__body--tight">
+      <!-- Desktop column header -->
+      <div class="gridHead" aria-hidden="true">
+        <div class="h h--handle"></div>
+        <div class="h">Order</div>
+        <div class="h">Category</div>
+        <div class="h h--actions">Actions</div>
+      </div>
+
+      <!-- Rows -->
+      <div id="categoryList" class="rows">
+        <% (categories || []).forEach((c, idx) => { %>
+          <article class="row" data-id="<%= c.id %>">
+            <!-- Handle -->
+            <div class="cell cell--handle" data-label="Reorder">
+              <button class="dragHandle" type="button" aria-label="Drag to reorder" title="Drag to reorder">⋮⋮</button>
             </div>
-          </td>
 
-          <td><%= c.slug %></td>
-          <td><%= new Date(c.created_at).toLocaleString() %></td>
+            <!-- Order -->
+            <div class="cell cell--order" data-label="Order">
+              <input class="input input--order" type="number" min="1" value="<%= (c.sort_order || (idx + 1)) %>">
+              <div class="smallHint">Auto-adjusts on drag</div>
+            </div>
 
-          <td>
-            <form method="post" action="/admin/categories/<%= c.id %>/delete"
-                  onsubmit="return confirm('Delete this category? (Only if no tracks use it)')">
-              <button type="submit" class="danger">Delete</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+            <!-- Main -->
+            <div class="cell cell--main" data-label="Category">
+              <form class="editForm" method="post" action="/admin/categories/<%= c.id %>" enctype="multipart/form-data" autocomplete="off">
+                <div class="editTop">
+                  <div class="thumbBox" aria-label="Thumbnail preview">
+                    <% if (c.thumbnail_path) { %>
+                      <img src="https://anannturjaa.com/<%= c.thumbnail_path %>" alt="Category thumbnail">
+                    <% } else { %>
+                      <div class="thumbEmpty">No image</div>
+                    <% } %>
+                  </div>
 
-  <%- include('partials/pagination', { pagination, base: '/admin/categories', extra: {} }) %>
+                  <div class="editFields">
+                    <div class="field">
+                      <label class="label label--sm">Name</label>
+                      <input class="input" type="text" name="name" value="<%= c.name %>" required>
+                    </div>
+
+                    <div class="field">
+                      <label class="label label--sm">Description</label>
+                      <input class="input" type="text" name="description" value="<%= c.description || '' %>" placeholder="Optional">
+                    </div>
+
+                    <div class="field">
+                      <label class="label label--sm">Replace thumbnail</label>
+                      <input class="input" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="editBottom">
+                  <div class="miniMeta">
+                    <span class="pill pill--soft">ID: <span class="mono"><%= c.id %></span></span>
+                    <% if (c.slug) { %>
+                      <span class="pill pill--soft">Slug: <span class="mono"><%= c.slug %></span></span>
+                    <% } %>
+                  </div>
+
+                  <div class="editActions">
+                    <button class="btn btn--primary" type="submit">Save</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Actions -->
+            <div class="cell cell--actions" data-label="Actions">
+              <form method="post" action="/admin/categories/<%= c.id %>/delete"
+                    onsubmit="return confirm('Delete this category? (Only if no tracks use it)')">
+                <button type="submit" class="btn btn--danger">Delete</button>
+              </form>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+
+      <div class="pager">
+        <%- include('partials/pagination', { pagination, base: '/admin/categories', extra: {} }) %>
+      </div>
+    </div>
+  </section>
 </div>
+
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<script>
+  (function () {
+    const list = document.getElementById('categoryList');
+    const saveBtn = document.getElementById('btnSaveOrder');
+
+    function toast(msg, ok = true) {
+      let t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.position = 'fixed';
+        t.style.right = '16px';
+        t.style.bottom = '16px';
+        t.style.maxWidth = 'min(520px, calc(100vw - 32px))';
+        t.style.padding = '10px 12px';
+        t.style.borderRadius = '12px';
+        t.style.boxShadow = '0 18px 40px rgba(0,0,0,.45)';
+        t.style.background = '#0B0B0B';
+        t.style.border = '1px solid rgba(201,160,59,.28)';
+        t.style.zIndex = 9999;
+        t.style.color = '#F5F5F5';
+        t.style.fontSize = '13px';
+        t.style.wordBreak = 'break-word';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.borderColor = ok ? 'rgba(201,160,59,.45)' : 'rgba(220,38,38,.55)';
+      t.style.color = ok ? '#F5F5F5' : '#FCA5A5';
+      clearTimeout(window.__toastT);
+      window.__toastT = setTimeout(() => t.remove(), 2600);
+    }
+
+    function rows() {
+      if (!list) return [];
+      return Array.from(list.querySelectorAll('.row'));
+    }
+
+    function normalizeOrderInputsFromDom() {
+      rows().forEach((row, i) => {
+        const input = row.querySelector('.input--order');
+        if (input) input.value = i + 1;
+      });
+    }
+
+    function sortDomByManualOrderInputs() {
+      const r = rows();
+      r.sort((a, b) => {
+        const ai = parseInt(a.querySelector('.input--order')?.value || '999999', 10);
+        const bi = parseInt(b.querySelector('.input--order')?.value || '999999', 10);
+        return ai - bi;
+      });
+      r.forEach(el => list.appendChild(el));
+      normalizeOrderInputsFromDom();
+    }
+
+    /**
+     * FIX (critical):
+     * Your previous config used:
+     *   filter + preventOnFilter: true
+     * This can block focus/typing inside inputs on some devices/browsers because Sortable
+     * hijacks pointer events before the input receives focus.
+     *
+     * Correct approach for form-heavy rows:
+     * - Use handle-only dragging (you already have handle: '.dragHandle')
+     * - DO NOT use preventOnFilter / filter for inputs
+     * - Use `cancel` to ensure Sortable never starts on form controls
+     */
+    if (window.Sortable && list) {
+      new Sortable(list, {
+        draggable: '.row',
+        handle: '.dragHandle',
+        animation: 160,
+        forceFallback: true,
+        fallbackTolerance: 3,
+        delay: 120,
+        delayOnTouchOnly: true,
+
+        // Prevent Sortable from ever starting on these controls
+        cancel: 'input, textarea, select, option, button:not(.dragHandle), a, label, img',
+
+        onEnd: normalizeOrderInputsFromDom
+      });
+    }
+
+    // Ensure inputs are always typeable by stopping drag-related propagation
+    // (extra safety for mobile Safari / touch environments)
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target;
+      if (!el) return;
+      if (el.closest && el.closest('#categoryList')) {
+        if (el.matches('input, textarea, select') || el.closest('input, textarea, select')) {
+          e.stopPropagation();
+        }
+      }
+    }, true);
+
+    list?.addEventListener('change', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('input--order')) {
+        sortDomByManualOrderInputs();
+      }
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+      const payload = rows().map((r, idx) => ({
+        id: Number(r.getAttribute('data-id')),
+        sort_order: idx + 1
+      }));
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        const resp = await fetch('/admin/categories/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ order: payload })
+        });
+
+        const raw = await resp.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+
+        if (!resp.ok) throw new Error(data.error || 'Failed to save order');
+
+        toast('Order saved successfully.');
+      } catch (err) {
+        console.error(err);
+        toast(err.message || 'Failed to save order', false);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Order';
+      }
+    });
+  })();
+</script>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F5F5F5;
+    --muted:rgba(245,245,245,.72);
+    --muted2:rgba(245,245,245,.55);
+    --gold:#C9A03B;
+    --goldSoft:rgba(201,160,59,.12);
+    --goldBorder:rgba(201,160,59,.22);
+    --borderSoft:rgba(255,255,255,.08);
+    --danger:#EF4444;
+    --dangerBorder:rgba(239,68,68,.35);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+
+  .cms{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .cms__header{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;
+  }
+  .cms__titleBlock{min-width:240px}
+  .cms__title{margin:0;font-size:22px;letter-spacing:.2px}
+  .cms__subtitle{margin-top:6px;color:var(--muted);font-size:13px;max-width:920px}
+  .cms__headerActions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--borderSoft);
+  }
+  .panel__head--split{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
+  }
+  .panel__title{margin:0;font-size:16px;letter-spacing:.2px}
+  .panel__desc{margin-top:8px;color:var(--muted2);font-size:12px;line-height:1.45}
+  .panel__meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .panel__body{padding:16px;min-width:0}
+  .panel__body--tight{padding-top:12px}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(245,245,245,.85);
+  }
+  .pill--soft{background:rgba(201,160,59,.06);border-color:rgba(201,160,59,.18)}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--borderSoft);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;line-height:1;
+    cursor:pointer;white-space:nowrap;
+    transition:transform .08s ease,border-color .15s ease,background .15s ease;
+  }
+  .btn:hover{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.07)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--primary:hover{background:#D7B256;border-color:rgba(201,160,59,.80)}
+  .btn--gold{background:var(--goldSoft);border-color:rgba(201,160,59,.38)}
+  .btn--danger{background:rgba(239,68,68,.08);border-color:var(--dangerBorder);color:#FCA5A5}
+  .btn--danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.55)}
+
+  .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .field--actions{display:flex;justify-content:flex-end}
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .label--sm{font-size:11px}
+  .input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+    min-width:0;
+  }
+  .input::placeholder{color:rgba(245,245,245,.40)}
+  .input:focus{border-color:rgba(201,160,59,.55);box-shadow:0 0 0 3px rgba(201,160,59,.12)}
+
+  .formAdd{
+    display:grid;
+    grid-template-columns: 1.2fr 1.4fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+
+  .gridHead{
+    display:grid;
+    grid-template-columns: 56px 110px 1fr 140px;
+    gap:12px;
+    padding:0 10px 10px 10px;
+    color:var(--muted2);
+    font-size:12px;
+  }
+  .h--handle{text-align:center}
+  .h--actions{text-align:right}
+
+  .rows{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .row{
+    display:grid;
+    grid-template-columns: 56px 110px 1fr 140px;
+    gap:12px;
+    padding:12px 10px;
+    border:1px solid rgba(201,160,59,.16);
+    border-radius:16px;
+    background:rgba(0,0,0,.18);
+    min-width:0;
+  }
+  .cell{min-width:0}
+  .cell--handle{display:flex;justify-content:center;align-items:flex-start;padding-top:2px}
+  .dragHandle{
+    width:42px;height:42px;border-radius:12px;
+    border:1px solid rgba(201,160,59,.22);
+    background:rgba(201,160,59,.10);
+    color:var(--text);
+    cursor:grab;
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;line-height:1;padding:0;
+  }
+  .dragHandle:active{cursor:grabbing}
+
+  .cell--order{display:flex;flex-direction:column;gap:6px}
+  .input--order{width:110px;text-align:center}
+  .smallHint{font-size:11px;color:rgba(245,245,245,.45)}
+
+  .editForm{width:100%;min-width:0}
+  .editTop{
+    display:grid;
+    grid-template-columns: 120px 1fr;
+    gap:12px;
+    align-items:start;
+  }
+  .thumbBox{width:120px}
+  .thumbBox img{
+    width:120px;height:72px;object-fit:cover;border-radius:14px;
+    border:1px solid rgba(201,160,59,.22);
+    display:block;
+  }
+  .thumbEmpty{
+    width:120px;height:72px;border-radius:14px;
+    border:1px dashed rgba(201,160,59,.30);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted2);font-size:12px;
+    background:rgba(201,160,59,.06);
+  }
+
+  .editFields{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+    min-width:0;
+  }
+  .editBottom{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    flex-wrap:wrap;
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+  .miniMeta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .editActions{display:flex;gap:10px;align-items:center}
+  .cell--actions{display:flex;justify-content:flex-end;align-items:flex-start}
+
+  .mono{
+    font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    word-break:break-word;
+  }
+
+  .pager{margin-top:12px}
+
+  @media (max-width: 1100px){
+    .gridHead{display:none}
+    .row{grid-template-columns: 1fr; padding:14px 12px}
+    .cell{
+      display:grid;
+      grid-template-columns: 140px 1fr;
+      gap:10px;
+      align-items:start;
+    }
+    .cell::before{
+      content: attr(data-label);
+      color: var(--muted2);
+      font-size:12px;
+      padding-top:10px;
+    }
+    .cell--handle{justify-content:unset;padding-top:0}
+    .cell--actions{justify-content:unset}
+    .editTop{grid-template-columns: 1fr}
+    .thumbBox{width:auto}
+    .thumbBox img,.thumbEmpty{width:160px;height:96px}
+    .editFields{grid-template-columns: 1fr}
+    .field--actions{justify-content:flex-start}
+    .formAdd{grid-template-columns: 1fr}
+  }
+
+  @media (max-width: 520px){
+    .cms__headerActions{width:100%}
+    #btnSaveOrder{width:100%}
+    .btn{width:100%}
+    .btn--gold{width:100%}
+    .cell{grid-template-columns: 1fr}
+    .cell::before{padding-top:0}
+    .input--order{width:100%}
+  }
+
+  .cms,.panel,.panel__body,.rows,.row,.editForm{overflow-x:hidden}
+</style>

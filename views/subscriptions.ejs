@@ -1,52 +1,635 @@
-<%  -%>
-<div class="card">
-  <div class="flex between">
-    <h3>Subscription Report</h3>
-    <a class="btn" href="/admin/subscriptions.csv">Export CSV</a>
-  </div>
-  <form class="form-inline" method="post" action="/admin/subscriptions">
-    <input type="number" name="user_id" placeholder="User ID" required>
-    <input type="text" name="track" placeholder="Track (e.g., Gold Plan)" required>
-    <select name="status">
-      <option value="active">active</option>
-      <option value="expired">expired</option>
-      <option value="cancelled">cancelled</option>
-    </select>
-    <input type="date" name="start_date">
-    <input type="date" name="end_date">
-    <button type="submit">Add</button>
-  </form>
-  <table>
-    <thead>
-      <tr><th>ID</th><th>User</th><th>Email</th><th>Track</th><th>Status</th><th>Start</th><th>End</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      <% subs.forEach(s => { %>
-        <tr>
-          <td><%= s.id %></td>
-          <td>#<%= s.user_id %> - <%= s.user_name %></td>
-          <td><%= s.email %></td>
-          <td colspan="4">
-            <form class="row" method="post" action="/admin/subscriptions/<%= s.id %>">
-              <input type="text" name="track" value="<%= s.track_id %>">
-              <select name="status">
-                <option <%= s.status==='active'?'selected':'' %> value="active">active</option>
-                <option <%= s.status==='expired'?'selected':'' %> value="expired">expired</option>
-                <option <%= s.status==='cancelled'?'selected':'' %> value="cancelled">cancelled</option>
+<%
+/**
+ * Expected:
+ * subs: [{
+ *  id, user_id, user_name, email,
+ *  track_id, status, start_date, end_date, created_at
+ * }]
+ * filters: {
+ *  q, status, track, user_id, from, to, start_from, start_to, end_from, end_to,
+ *  sort, dir, limit, page
+ * }
+ * pagination: { page, limit, total }
+ */
+const f = (typeof filters !== 'undefined' && filters) ? filters : {};
+const safe = (v) => (v === undefined || v === null) ? '' : String(v);
+const qs = (obj) => new URLSearchParams(
+  Object.fromEntries(
+    Object.entries(obj || {}).filter(([_, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+  )
+).toString();
+
+const activeFilterCount = (() => {
+  const keys = ['q','status','track','user_id','from','to','start_from','start_to','end_from','end_to','sort','dir'];
+  return keys.reduce((acc, k) => (String(f[k] || '').trim() ? acc + 1 : acc), 0);
+})();
+
+const fmtDate = (d) => {
+  if (!d) return '';
+  try { return new Date(d).toISOString().slice(0,10); } catch { return ''; }
+};
+%>
+
+<div class="dashSub">
+  <!-- HEADER -->
+  <header class="dashSub__header">
+    <div class="dashSub__titleBlock">
+      <h2 class="dashSub__title">Subscriptions</h2>
+      <div class="dashSub__subtitle">
+        Back-office subscription management with quick search, advanced filters, and exports.
+      </div>
+    </div>
+
+    <div class="dashSub__actions">
+      <a class="btn btn--ghost" href="/admin/subscriptions?<%= qs({ limit: f.limit || pagination.limit || 20 }) %>">Reset</a>
+      <a class="btn btn--gold" href="/admin/subscriptions.csv?<%= qs(f) %>">Export CSV</a>
+    </div>
+  </header>
+
+  <!-- FILTERS -->
+  <section class="panel panel--filters">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h3 class="panel__title">Search & Filters</h3>
+        <div class="panel__desc">
+          Search by User Name, Email, Track, or Subscription ID. Use advanced filters for dates and sorting.
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip">Active filters: <%= activeFilterCount %></span>
+        <span class="chip">On page: <%= (subs || []).length %></span>
+        <span class="chip">Limit: <%= pagination.limit %></span>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form id="subFilterForm" class="filters" method="get" action="/admin/subscriptions" autocomplete="off">
+        <!-- Quick Search -->
+        <div class="field field--wide">
+          <label class="label">Quick Search</label>
+          <div class="inputWrap">
+            <span class="icon" aria-hidden="true">⌕</span>
+            <input
+              class="input input--withIcon"
+              type="text"
+              name="q"
+              value="<%= safe(f.q) %>"
+              placeholder="Subscription ID, user name, email, track…"
+              spellcheck="false"
+            >
+            <button class="btn btn--mini btn--ghost" type="button" id="btnClearSearch" title="Clear">Clear</button>
+          </div>
+
+          <div class="helperRow">
+            <button class="pillBtn" type="button" data-q="status:active">status:active</button>
+            <button class="pillBtn" type="button" data-q="email:@gmail.com">email:@gmail.com</button>
+            <button class="pillBtn" type="button" data-q="track:Gold">track:Gold</button>
+          </div>
+
+          <div class="tinyHint">
+            Tip: Combine quick search with status / date filters below for “Amazon-like” precision.
+          </div>
+        </div>
+
+        <!-- Primary -->
+        <div class="field">
+          <label class="label">Status</label>
+          <select class="select" name="status">
+            <option value="">All</option>
+            <option value="active"    <%= f.status==='active'?'selected':'' %>>active</option>
+            <option value="expired"   <%= f.status==='expired'?'selected':'' %>>expired</option>
+            <option value="cancelled" <%= f.status==='cancelled'?'selected':'' %>>cancelled</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">User ID</label>
+          <input class="input" type="number" min="1" name="user_id" value="<%= safe(f.user_id) %>" placeholder="e.g., 101">
+        </div>
+
+        <div class="field">
+          <label class="label">Track</label>
+          <input class="input" type="text" name="track" value="<%= safe(f.track) %>" placeholder="e.g., Gold Plan">
+        </div>
+
+        <div class="field">
+          <label class="label">Created From</label>
+          <input class="input" type="date" name="from" value="<%= safe(f.from) %>">
+        </div>
+
+        <div class="field">
+          <label class="label">Created To</label>
+          <input class="input" type="date" name="to" value="<%= safe(f.to) %>">
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--ghost" type="button" id="btnToggleAdvanced" aria-expanded="false">
+            Advanced
+          </button>
+        </div>
+
+        <!-- Advanced -->
+        <div id="advancedArea" class="advanced" hidden>
+          <div class="advGrid">
+            <div class="field">
+              <label class="label">Start Date From</label>
+              <input class="input" type="date" name="start_from" value="<%= safe(f.start_from) %>">
+            </div>
+
+            <div class="field">
+              <label class="label">Start Date To</label>
+              <input class="input" type="date" name="start_to" value="<%= safe(f.start_to) %>">
+            </div>
+
+            <div class="field">
+              <label class="label">End Date From</label>
+              <input class="input" type="date" name="end_from" value="<%= safe(f.end_from) %>">
+            </div>
+
+            <div class="field">
+              <label class="label">End Date To</label>
+              <input class="input" type="date" name="end_to" value="<%= safe(f.end_to) %>">
+            </div>
+
+            <div class="field">
+              <label class="label">Sort By</label>
+              <select class="select" name="sort">
+                <option value="created_at" <%= (!f.sort || f.sort==='created_at')?'selected':'' %>>Created Time</option>
+                <option value="start_date" <%= f.sort==='start_date'?'selected':'' %>>Start Date</option>
+                <option value="end_date"   <%= f.sort==='end_date'?'selected':'' %>>End Date</option>
+                <option value="status"     <%= f.sort==='status'?'selected':'' %>>Status</option>
+                <option value="track_id"   <%= f.sort==='track_id'?'selected':'' %>>Track</option>
               </select>
-              <input type="date" name="start_date" value="<%= s.start_date ? new Date(s.start_date).toISOString().slice(0,10) : '' %>">
-              <input type="date" name="end_date" value="<%= s.end_date ? new Date(s.end_date).toISOString().slice(0,10) : '' %>">
-              <button type="submit">Save</button>
-            </form>
-          </td>
-          <td>
-            <form method="post" action="/admin/subscriptions/<%= s.id %>/delete" onsubmit="return confirm('Delete subscription?');">
-              <button type="submit" class="danger">Delete</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-  <%- include('partials/pagination', { pagination, base: '/admin/subscriptions', extra: {} }) %>
+            </div>
+
+            <div class="field">
+              <label class="label">Direction</label>
+              <select class="select" name="dir">
+                <option value="desc" <%= (!f.dir || f.dir==='desc')?'selected':'' %>>Descending</option>
+                <option value="asc"  <%= f.dir==='asc'?'selected':'' %>>Ascending</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label class="label">Per Page</label>
+              <select class="select" name="limit">
+                <% [10,20,50,100].forEach(n => { %>
+                  <option value="<%= n %>" <%= Number(pagination.limit)===n ? 'selected' : '' %>><%= n %></option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" name="page" value="1">
+
+        <div class="filterBar">
+          <button class="btn btn--primary" type="submit">Apply</button>
+          <a class="btn btn--ghost" href="/admin/subscriptions?<%= qs({ limit: f.limit || pagination.limit || 20 }) %>">Clear All</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ADD SUBSCRIPTION -->
+  <section class="panel">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title">Create Subscription</h3>
+        <div class="panel__desc">Add a new subscription record (admin only). Use filters above to verify after creation.</div>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <form class="addGrid" method="post" action="/admin/subscriptions" autocomplete="off">
+        <div class="field">
+          <label class="label">User ID</label>
+          <input class="input" type="number" min="1" name="user_id" placeholder="User ID" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Track</label>
+          <input class="input" type="text" name="track" placeholder="Track ID / Plan name" required>
+        </div>
+
+        <div class="field">
+          <label class="label">Status</label>
+          <select class="select" name="status">
+            <option value="active">active</option>
+            <option value="expired">expired</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Start Date</label>
+          <input class="input" type="date" name="start_date">
+        </div>
+
+        <div class="field">
+          <label class="label">End Date</label>
+          <input class="input" type="date" name="end_date">
+        </div>
+
+        <div class="field field--actions">
+          <button class="btn btn--primary" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="panel">
+    <div class="panel__head panel__head--split">
+      <div>
+        <h3 class="panel__title">Results</h3>
+        <div class="panel__desc">Edit subscriptions inline. Delete only when required (audit impact).</div>
+      </div>
+
+      <div class="panelRight">
+        <div class="kpi">
+          <div class="kpi__label">Total</div>
+          <div class="kpi__value"><%= pagination.total %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel__body panel__body--tight">
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Email</th>
+              <th>Track</th>
+              <th>Status</th>
+              <th>Start</th>
+              <th>End</th>
+              <th class="taRight">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <% if (!subs || !subs.length) { %>
+              <tr><td colspan="8" class="empty">No subscriptions found for the selected filters.</td></tr>
+            <% } %>
+
+            <% (subs || []).forEach(s => { %>
+              <tr>
+                <td class="mono">#<%= s.id %></td>
+
+                <td>
+                  <div class="cellMain">#<%= s.user_id %> — <%= s.user_name %></div>
+                  <div class="cellSub">User</div>
+                </td>
+
+                <td>
+                  <div class="cellMain"><%= s.email %></div>
+                  <div class="cellSub">Email</div>
+                </td>
+
+                <!-- Inline edit form (no nested forms) -->
+                <td colspan="4" class="tdEdit">
+                  <form class="editRow" method="post" action="/admin/subscriptions/<%= s.id %>">
+                    <div class="editGrid">
+                      <div class="field">
+                        <label class="label label--sm">Track</label>
+                        <input class="input" type="text" name="track" value="<%= safe(s.track_id) %>">
+                      </div>
+
+                      <div class="field">
+                        <label class="label label--sm">Status</label>
+                        <select class="select" name="status">
+                          <option value="active"    <%= s.status==='active'?'selected':'' %>>active</option>
+                          <option value="expired"   <%= s.status==='expired'?'selected':'' %>>expired</option>
+                          <option value="cancelled" <%= s.status==='cancelled'?'selected':'' %>>cancelled</option>
+                        </select>
+                      </div>
+
+                      <div class="field">
+                        <label class="label label--sm">Start</label>
+                        <input class="input" type="date" name="start_date" value="<%= fmtDate(s.start_date) %>">
+                      </div>
+
+                      <div class="field">
+                        <label class="label label--sm">End</label>
+                        <input class="input" type="date" name="end_date" value="<%= fmtDate(s.end_date) %>">
+                      </div>
+
+                      <div class="field field--actions">
+                        <button class="btn btn--primary" type="submit">Save</button>
+                      </div>
+                    </div>
+                  </form>
+                </td>
+
+                <td class="taRight">
+                  <form method="post" action="/admin/subscriptions/<%= s.id %>/delete"
+                        onsubmit="return confirm('Delete subscription?');">
+                    <button type="submit" class="btn btn--danger">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager">
+        <%- include('partials/pagination', { pagination, base: '/admin/subscriptions', extra: f }) %>
+      </div>
+    </div>
+  </section>
 </div>
+
+<script>
+  (function () {
+    const form = document.getElementById('subFilterForm');
+    const adv = document.getElementById('advancedArea');
+    const toggle = document.getElementById('btnToggleAdvanced');
+    const clearBtn = document.getElementById('btnClearSearch');
+    const qInput = form?.querySelector('input[name="q"]');
+
+    function setAdvanced(open) {
+      if (!adv || !toggle) return;
+      adv.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.textContent = open ? 'Hide Advanced' : 'Advanced';
+      try { localStorage.setItem('sub_adv_open', open ? '1' : '0'); } catch {}
+    }
+
+    const url = new URL(window.location.href);
+    const advKeys = ['start_from','start_to','end_from','end_to','sort','dir','limit'];
+    const hasAdvActive = advKeys.some(k => (url.searchParams.get(k) || '').trim() !== '');
+    let stored = '0';
+    try { stored = localStorage.getItem('sub_adv_open') || '0'; } catch {}
+    setAdvanced(hasAdvActive || stored === '1');
+
+    toggle?.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+      setAdvanced(open);
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      if (!qInput) return;
+      qInput.value = '';
+      qInput.focus();
+    });
+
+    document.querySelectorAll('.pillBtn[data-q]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!qInput) return;
+        qInput.value = btn.getAttribute('data-q') || '';
+        qInput.focus();
+      });
+    });
+
+    form?.addEventListener('submit', () => {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Applying...';
+      }
+    });
+  })();
+</script>
+
+<style>
+  :root{
+    --bg:#070707;
+    --card:#0B0B0B;
+    --card2:#101010;
+    --text:#F4F4F4;
+    --muted:rgba(244,244,244,.72);
+    --muted2:rgba(244,244,244,.55);
+    --gold:#C9A03B;
+    --goldSoft:rgba(201,160,59,.12);
+    --gold2:rgba(201,160,59,.14);
+    --goldBorder:rgba(201,160,59,.22);
+    --softBorder:rgba(255,255,255,.08);
+    --shadow:0 18px 60px rgba(0,0,0,.55);
+    --danger:#EF4444;
+    --dangerBorder:rgba(239,68,68,.35);
+    --ok: rgba(34,197,94,.85);
+    --warn: rgba(245,158,11,.92);
+  }
+
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+
+  .dashSub{display:flex;flex-direction:column;gap:14px;color:var(--text)}
+  .dashSub__header{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .dashSub__title{margin:0;font-size:22px;letter-spacing:.2px}
+  .dashSub__subtitle{margin-top:6px;font-size:13px;color:var(--muted);max-width:980px}
+  .dashSub__actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  .panel{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--goldBorder);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:0;
+  }
+  .panel__head{
+    padding:14px 16px 12px;
+    border-bottom:1px solid var(--softBorder);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .panel__head--split{align-items:flex-start}
+  .panel__title{margin:0;font-size:16px;letter-spacing:.2px}
+  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
+  .panel__body{padding:16px;min-width:0}
+  .panel__body--tight{padding-top:12px}
+  .panel--filters{border-color:rgba(201,160,59,.30)}
+
+  .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{
+    font-size:12px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(244,244,244,.85);
+  }
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 14px;border-radius:12px;min-height:40px;
+    border:1px solid var(--softBorder);
+    background:transparent;color:var(--text);
+    font-weight:900;font-size:13px;line-height:1;
+    cursor:pointer;white-space:nowrap;
+    transition:transform .08s ease,border-color .15s ease,background .15s ease;
+  }
+  .btn:hover{border-color:rgba(201,160,59,.35);background:rgba(201,160,59,.07)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
+  .btn--primary:hover{background:#D7B256;border-color:rgba(201,160,59,.80)}
+  .btn--gold{background:var(--gold2);border-color:rgba(201,160,59,.38)}
+  .btn--ghost{background:transparent;border-color:rgba(201,160,59,.22);color:rgba(244,244,244,.92)}
+  .btn--ghost:hover{background:rgba(201,160,59,.07)}
+  .btn--danger{background:rgba(239,68,68,.08);border-color:var(--dangerBorder);color:#FCA5A5}
+  .btn--danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.55)}
+  .btn--mini{min-height:34px;padding:8px 10px;border-radius:10px;font-weight:900}
+
+  .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .field--wide{grid-column:1 / -1}
+  .field--actions{display:flex;justify-content:flex-end;align-items:end}
+
+  .label{font-size:12px;color:var(--muted2);font-weight:800}
+  .label--sm{font-size:11px}
+  .tinyHint{font-size:11px;color:rgba(244,244,244,.45);margin-top:6px}
+
+  .input,.select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(255,255,255,.03);
+    color:var(--text);
+    outline:none;
+    font-size:13px;
+    min-width:0;
+  }
+  .input:focus,.select:focus{
+    border-color:rgba(201,160,59,.55);
+    box-shadow:0 0 0 3px rgba(201,160,59,.12);
+  }
+
+  .inputWrap{position:relative;display:flex;gap:8px;align-items:center}
+  .icon{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    color:rgba(244,244,244,.55);font-size:13px;pointer-events:none;
+  }
+  .input--withIcon{padding-left:34px}
+
+  .helperRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .pillBtn{
+    border:1px solid rgba(201,160,59,.20);
+    background:rgba(201,160,59,.08);
+    color:rgba(244,244,244,.88);
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    cursor:pointer;
+  }
+  .pillBtn:hover{background:rgba(201,160,59,.12)}
+
+  .filters{
+    display:grid;
+    grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+
+  .advanced{
+    grid-column:1 / -1;
+    margin-top:4px;
+    padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+  .advGrid{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap:12px;
+    align-items:end;
+  }
+
+  .filterBar{
+    grid-column:1 / -1;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:flex-end;
+    margin-top:2px;
+    padding-top:10px;
+  }
+
+  .addGrid{
+    display:grid;
+    grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr auto;
+    gap:12px;
+    align-items:end;
+  }
+
+  .panelRight{display:flex;gap:10px;align-items:center}
+  .kpi{
+    border:1px solid rgba(201,160,59,.18);
+    background:rgba(201,160,59,.06);
+    border-radius:14px;
+    padding:10px 12px;
+    min-width:140px;
+  }
+  .kpi__label{font-size:12px;color:rgba(244,244,244,.70);font-weight:900}
+  .kpi__value{font-size:18px;font-weight:900;margin-top:4px}
+
+  .tableWrap{overflow:auto;border-radius:14px;border:1px solid rgba(201,160,59,.14)}
+  .table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    min-width:980px;
+    background:rgba(0,0,0,.12);
+  }
+  .table th,.table td{
+    padding:12px 12px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    vertical-align:top;
+    font-size:13px;
+  }
+  .table thead th{
+    position:sticky;top:0;
+    background:rgba(11,11,11,.92);
+    backdrop-filter: blur(6px);
+    z-index:2;
+    color:rgba(244,244,244,.85);
+    text-align:left;
+  }
+  .taRight{text-align:right}
+  .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+
+  .cellMain{font-weight:900}
+  .cellSub{margin-top:4px;font-size:11px;color:rgba(244,244,244,.50)}
+  .empty{text-align:center;padding:22px 12px;color:rgba(244,244,244,.72)}
+
+  .tdEdit{padding:0}
+  .editRow{padding:12px}
+  .editGrid{
+    display:grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr auto;
+    gap:10px;
+    align-items:end;
+  }
+
+  .pager{margin-top:12px}
+
+  @media (max-width: 1280px){
+    .filters{grid-template-columns: 1fr 1fr 1fr 1fr 1fr;}
+    .field--actions{justify-content:flex-start}
+    .advGrid{grid-template-columns:1fr 1fr 1fr 1fr}
+    .filterBar{justify-content:flex-start}
+    .addGrid{grid-template-columns:1fr 1fr 1fr}
+    .editGrid{grid-template-columns:1fr 1fr}
+  }
+
+  @media (max-width: 768px){
+    .filters{grid-template-columns:1fr}
+    .advGrid{grid-template-columns:1fr}
+    .filterBar{flex-direction:column;align-items:stretch}
+    .filterBar .btn{width:100%}
+    .dashSub__actions{width:100%}
+    .dashSub__actions .btn{width:100%}
+    .addGrid{grid-template-columns:1fr}
+    .editGrid{grid-template-columns:1fr}
+  }
+
+  .dashSub,.panel,.panel__body{overflow-x:hidden}
+</style>
