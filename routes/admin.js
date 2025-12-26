@@ -1143,13 +1143,35 @@ const catStorage = multer.diskStorage({
     cb(null, 'cat_' + Date.now() + ext);
   }
 });
+
 const imageFilter = (req, file, cb) => {
-  const ok = ['image/png','image/jpeg','image/webp'].includes(file.mimetype)
-           || /\.(png|jpe?g|webp)$/i.test(file.originalname);
-  if (!ok) return cb(new Error('Only PNG/JPG/WEBP images allowed'));
+  const allowedMimeTypes = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'image/gif'
+  ];
+
+  const allowedExt = /\.(png|jpe?g|webp|gif)$/i;
+
+  const isMimeOk = allowedMimeTypes.includes(file.mimetype);
+  const isExtOk = allowedExt.test(file.originalname);
+
+  if (!isMimeOk || !isExtOk) {
+    return cb(new Error('Only PNG, JPG, WEBP, or GIF images are allowed'), false);
+  }
+
   cb(null, true);
 };
-const uploadCat = multer({ storage: catStorage, fileFilter: imageFilter, limits: { fileSize: 10 * 1024 * 1024 }});
+
+const uploadCat = multer({
+  storage: catStorage,
+  fileFilter: imageFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10 MB
+  }
+});
 
 
 
@@ -1556,15 +1578,41 @@ const trackStorage = multer.diskStorage({
     cb(null, path.join(__dirname, '..', 'public', 'uploads', 'tracks'));
   },
   filename: (req, file, cb) => {
-    const ext = (path.extname(file.originalname) || (file.fieldname === 'mp3' ? '.mp3' : '.png')).toLowerCase();
-    const prefix = file.fieldname === 'mp3' ? 'track_' : 'track_thumb_';
+    const ext = (
+      path.extname(file.originalname) ||
+      (file.fieldname === 'mp3' ? '.mp3' : '.png')
+    ).toLowerCase();
+
+    const prefix = file.fieldname === 'mp3'
+      ? 'track_'
+      : 'track_thumb_';
+
     cb(null, prefix + Date.now() + ext);
   }
 });
+
 const trackFilter = (req, file, cb) => {
-  const isMp3 = file.fieldname === 'mp3' && (file.mimetype === 'audio/mpeg' || /\.mp3$/i.test(file.originalname));
-  const isImg = file.fieldname === 'thumb' && (['image/png','image/jpeg','image/webp'].includes(file.mimetype) || /\.(png|jpe?g|webp)$/i.test(file.originalname));
-  if (!isMp3 && !isImg) return cb(new Error('Invalid file type'));
+  // MP3 validation
+  const isMp3 =
+    file.fieldname === 'mp3' &&
+    (
+      file.mimetype === 'audio/mpeg' ||
+      /\.mp3$/i.test(file.originalname)
+    );
+
+  // Thumbnail image validation (PNG / JPG / WEBP / GIF)
+  const isImg =
+    file.fieldname === 'thumb' &&
+    (
+      ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
+        .includes(file.mimetype) ||
+      /\.(png|jpe?g|webp|gif)$/i.test(file.originalname)
+    );
+
+  if (!isMp3 && !isImg) {
+    return cb(new Error('Invalid file type. Only MP3 and PNG/JPG/WEBP/GIF images are allowed'), false);
+  }
+
   cb(null, true);
 };
 
