@@ -681,10 +681,6 @@ router.get('/users/:user_id/active-tracks', async (req, res) => {
 });
 
 
-const requireUserAuth = (req, res, next) => {
-  if (req.body && req.body.user) return next();
-  return res.status(401).json({ error: 'Login required' });
-};
 
 
 
@@ -820,8 +816,7 @@ router.post(
 
 router.post(
   '/master/status',
-  body('user_id').notEmpty().withMessage('user_id required'),
-  async (req, res) => {
+   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
