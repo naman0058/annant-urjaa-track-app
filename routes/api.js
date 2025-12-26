@@ -690,9 +690,7 @@ const requireUserAuth = (req, res, next) => {
 
 router.post(
   '/redeem',
-  requireUserAuth,
-  req.body('code').notEmpty().withMessage('Code required'),
-  async (req, res) => {
+    async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
