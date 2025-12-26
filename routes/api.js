@@ -681,4 +681,254 @@ router.get('/users/:user_id/active-tracks', async (req, res) => {
 });
 
 
+const requireUserAuth = (req, res, next) => {
+  if (req.body && req.body.user) return next();
+  return res.status(401).json({ error: 'Login required' });
+};
+
+
+
+router.post(
+  '/redeem',
+  requireUserAuth,
+  body('code').notEmpty().withMessage('Code required'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
+    }
+
+    // IMPORTANT:
+    // - If you are using session auth, prefer req.session.user.id (most secure).
+    // - If you *really* want to accept user id from body, validate it strictly.
+    // Your current line `req.body.user.id` will crash if `user` is undefined.
+    const userId = Number(req.session?.user?.id ?? req.body?.user?.id);
+
+    const code = String(req.body.code || '').trim().toUpperCase();
+
+    if (!userId || Number.isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid User' });
+    }
+
+    try {
+      const now = new Date();
+
+      // 1) Fetch the master code ONLY if it is assigned to this user (assigned_member contains user id)
+      // FIXES:
+      // - `: userId` (space) is invalid -> use :userId
+      // - you passed { code , userID } but used userId -> mismatch
+      // - ensure assigned_member comparison matches your column type:
+      //   if assigned_member is VARCHAR, compare with String(userId)
+      //   if it is INT, compare with userId
+      const [rows] = await req.db.query(
+        `
+        SELECT
+          id, code, status, valid_from, valid_to,
+          assigned_user_id, assigned_member
+        FROM master_codes
+        WHERE code = :code
+          AND assigned_member = :assigned_member
+        LIMIT 1
+        `,
+        {
+          code,
+          assigned_member: String(userId) // if assigned_member is INT in DB, change to: userId
+        }
+      );
+
+      // If code exists but not assigned to this user, you may want 403 instead of 404.
+      if (!rows.length) {
+        return res.status(403).json({ error: 'You are not authorized for this master code' });
+      }
+
+      const mc = rows[0];
+
+      // 2) Status + validity checks
+      if (mc.status !== 'active') {
+        return res.status(403).json({ error: 'This code is inactive' });
+      }
+
+      if (new Date(mc.valid_from) > now) {
+        return res.status(403).json({ error: 'This code is not active yet' });
+      }
+
+      if (new Date(mc.valid_to) < now) {
+        return res.status(403).json({ error: 'This code has expired' });
+      }
+
+      // 3) If redemption exists -> already applied
+      const [existing] = await req.db.query(
+        `
+        SELECT id, access_starts_at, access_expires_at, redeemed_at
+        FROM master_code_redemptions
+        WHERE master_code_id = :master_code_id
+          AND user_id = :user_id
+        LIMIT 1
+        `,
+        { master_code_id: mc.id, user_id: userId }
+      );
+
+      if (existing.length) {
+        return res.status(200).json({
+          ok: true,
+          alreadyApplied: true,
+          message: 'Master code already applied.',
+          access: {
+            starts_at: existing[0].access_starts_at,
+            expires_at: existing[0].access_expires_at
+          }
+        });
+      }
+
+      // 4) Create redemption (first time)
+      await req.db.query(
+        `
+        INSERT INTO master_code_redemptions
+          (master_code_id, user_id, access_starts_at, access_expires_at)
+        VALUES
+          (:master_code_id, :user_id, :starts, :expires)
+        `,
+        {
+          master_code_id: mc.id,
+          user_id: userId,
+          starts: mc.valid_from,
+          expires: mc.valid_to
+        }
+      );
+
+      return res.status(200).json({
+        ok: true,
+        alreadyApplied: false,
+        message: 'Master code applied successfully. Premium unlocked.',
+        access: { starts_at: mc.valid_from, expires_at: mc.valid_to }
+      });
+    } catch (e) {
+      console.error(e);
+
+      // Handle unique constraint race condition
+      if (String(e.code || '').includes('ER_DUP_ENTRY')) {
+        return res.status(200).json({
+          ok: true,
+          alreadyApplied: true,
+          message: 'Master code already applied.'
+        });
+      }
+
+      return res.status(500).json({ error: 'Failed to redeem master code' });
+    }
+  }
+);
+
+
+router.post(
+  '/master/status',
+  body('user_id').notEmpty().withMessage('user_id required'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
+    }
+
+    const userId = Number(req.body.user_id);
+    if (!userId || Number.isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user_id' });
+    }
+
+    try {
+      const now = new Date();
+
+      // Latest redemption (in case user redeemed multiple codes over time)
+      const [rows] = await req.db.query(
+        `
+        SELECT
+          r.id,
+          r.master_code_id,
+          r.access_starts_at,
+          r.access_expires_at,
+          r.redeemed_at,
+          c.code,
+          c.status AS code_status,
+          c.valid_from,
+          c.valid_to
+        FROM master_code_redemptions r
+        JOIN master_codes c ON c.id = r.master_code_id
+        WHERE r.user_id = :user_id
+        ORDER BY r.access_expires_at DESC, r.redeemed_at DESC
+        LIMIT 1
+        `,
+        { user_id: userId }
+      );
+
+      if (!rows.length) {
+        return res.status(200).json({
+          ok: true,
+          status: 'none',
+          message: 'No master redemption found'
+        });
+      }
+
+      const r = rows[0];
+
+      // If code has been disabled by admin, treat it as expired/invalid (recommended behavior)
+      if (r.code_status !== 'active') {
+        return res.status(200).json({
+          ok: true,
+          status: 'expired',
+          message: 'Master access is not active (code disabled).',
+          access: {
+            starts_at: r.access_starts_at,
+            expires_at: r.access_expires_at
+          },
+          code: r.code
+        });
+      }
+
+      const startsAt = new Date(r.access_starts_at);
+      const expiresAt = new Date(r.access_expires_at);
+
+      if (startsAt > now) {
+        return res.status(200).json({
+          ok: true,
+          status: 'upcoming',
+          message: 'Master access is not active yet.',
+          access: {
+            starts_at: r.access_starts_at,
+            expires_at: r.access_expires_at
+          },
+          code: r.code
+        });
+      }
+
+      if (expiresAt < now) {
+        return res.status(200).json({
+          ok: true,
+          status: 'expired',
+          message: 'Master access expired.',
+          access: {
+            starts_at: r.access_starts_at,
+            expires_at: r.access_expires_at
+          },
+          code: r.code
+        });
+      }
+
+      // Valid right now
+      return res.status(200).json({
+        ok: true,
+        status: 'valid',
+        message: 'Master access is valid.',
+        access: {
+          starts_at: r.access_starts_at,
+          expires_at: r.access_expires_at
+        },
+        code: r.code
+      });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: 'Failed to check master status' });
+    }
+  }
+);
+
+
 module.exports = router;
