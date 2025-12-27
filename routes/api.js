@@ -150,7 +150,7 @@ router.get('/categories/:id/tracks', async (req, res) => {
       SELECT t.id, t.title, t.description, t.thumbnail_path, t.price_paise, t.status,
              t.mp3_path, t.created_at
       FROM tracks t
-      WHERE t.category_id = :id ORDER BY sort_order ASC, name ASC
+      WHERE t.category_id = :id ORDER BY sort_order ASC
       `, { id });
 
     const payload = tracks.map(t => ({
