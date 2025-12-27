@@ -687,10 +687,7 @@ router.get('/users/:user_id/active-tracks', async (req, res) => {
 router.post(
   '/redeem',
     async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
-    }
+   
 
     // IMPORTANT:
     // - If you are using session auth, prefer req.session.user.id (most secure).
@@ -817,10 +814,7 @@ router.post(
 router.post(
   '/master/status',
    async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array().map(e => e.msg).join(', ') });
-    }
+  
 
     const userId = Number(req.body.user_id);
     if (!userId || Number.isNaN(userId)) {
