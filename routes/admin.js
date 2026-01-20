@@ -1150,16 +1150,17 @@ const imageFilter = (req, file, cb) => {
     'image/jpeg',
     'image/jpg',
     'image/webp',
-    'image/gif'
+    'image/gif',
+    'image/mp4'
   ];
 
-  const allowedExt = /\.(png|jpe?g|webp|gif)$/i;
+  const allowedExt = /\.(png|jpe?g|webp|gif|mp4)$/i;
 
   const isMimeOk = allowedMimeTypes.includes(file.mimetype);
   const isExtOk = allowedExt.test(file.originalname);
 
   if (!isMimeOk || !isExtOk) {
-    return cb(new Error('Only PNG, JPG, WEBP, or GIF images are allowed'), false);
+    return cb(new Error('Only PNG, JPG, WEBP, GIF or Mp4 images are allowed'), false);
   }
 
   cb(null, true);
@@ -1604,13 +1605,13 @@ const trackFilter = (req, file, cb) => {
   const isImg =
     file.fieldname === 'thumb' &&
     (
-      ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
+      ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif' , 'image/mp4']
         .includes(file.mimetype) ||
-      /\.(png|jpe?g|webp|gif)$/i.test(file.originalname)
+      /\.(png|jpe?g|webp|gif|mp4)$/i.test(file.originalname)
     );
 
   if (!isMp3 && !isImg) {
-    return cb(new Error('Invalid file type. Only MP3 and PNG/JPG/WEBP/GIF images are allowed'), false);
+    return cb(new Error('Invalid file type. Only MP3 and PNG/JPG/WEBP/GIF/Mp4 images are allowed'), false);
   }
 
   cb(null, true);
