@@ -1,0 +1,169 @@
+<%
+  const p = post || {};
+  const isEdit = mode === 'edit' && p.id;
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const tagNames = (postTags || []).map((t) => t.name).join(', ');
+%>
+<aside class="blogEditor__settingsAside" aria-label="Post settings">
+  <details class="blogEditor__accordion panel panel--compact" open>
+    <summary class="blogEditor__accordionSummary">Featured image</summary>
+    <div class="panel__body panel__body--tight blogEditor__thumbInner">
+      <div class="blogEditor__thumbDrop" id="blogThumbDrop">
+        <div class="blogEditor__thumbFrame">
+          <% if (p.featured_image) { %>
+            <img class="blogEditor__thumb" id="blogThumbPreview" src="<%= p.featured_image %>" alt="">
+            <div class="blogEditor__thumbPlaceholder" id="blogThumbEmpty" hidden>No image</div>
+          <% } else { %>
+            <img class="blogEditor__thumb" id="blogThumbPreview" alt="" hidden>
+            <div class="blogEditor__thumbPlaceholder" id="blogThumbEmpty">Drop image or choose file</div>
+          <% } %>
+        </div>
+      </div>
+      <input type="file" class="blogEditor__fileInput" id="blogThumbInput" name="featured_image" accept="image/jpeg,image/png,image/webp,image/gif">
+      <button type="button" class="btn btn--ghost btn--mini blogEditor__thumbPick" id="blogThumbPick">Choose image</button>
+      <span class="cellMuted blogEditor__thumbHint mono"><%= imageMaxMb %>MB · <%= recommendedAspect %></span>
+      <label class="field">
+        <span class="field__label">Alt text</span>
+        <input class="input input--compact" name="featured_image_alt" maxlength="255" value="<%= p.featured_image_alt || '' %>">
+      </label>
+      <% if (isEdit && p.featured_image) { %>
+        <button class="btn btn--danger btn--mini" type="submit" form="blogThumbRemoveForm">Remove image</button>
+      <% } %>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact" open>
+    <summary class="blogEditor__accordionSummary">Publishing</summary>
+    <div class="panel__body panel__body--tight blogEditor__stack">
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status">
+          <% ['draft','review','scheduled','archived'].forEach((s) => { %>
+            <option value="<%= s %>" <%= (p.status||'draft')===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+          <% if (p.status === 'published') { %><option value="published" selected>published</option><% } %>
+        </select>
+      </label>
+      <% if (isEdit) { %>
+        <label class="field">
+          <span class="field__label">Scheduled at</span>
+          <input class="input input--compact" type="datetime-local" name="scheduled_at" value="<%= p.scheduled_at ? new Date(p.scheduled_at).toISOString().slice(0,16) : '' %>">
+        </label>
+      <% } %>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact">
+    <summary class="blogEditor__accordionSummary">Category &amp; tags</summary>
+    <div class="panel__body panel__body--tight blogEditor__stack">
+      <label class="field">
+        <span class="field__label">Category</span>
+        <select class="select select--compact" name="category_id">
+          <option value="">—</option>
+          <% (categories || []).forEach((c) => { %>
+            <option value="<%= c.id %>" <%= String(p.category_id||'')===String(c.id)?'selected':'' %>><%= c.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <div class="field">
+        <span class="field__label">Tags</span>
+        <input type="hidden" name="tags" id="blogTagsHidden" value="<%= tagNames %>">
+        <div class="blogEditor__tagChips" id="blogTagChips"></div>
+        <input class="input input--compact" type="search" id="blogTagSearch" placeholder="Search or add tag…" autocomplete="off">
+        <div class="blogEditor__tagSuggest" id="blogTagSuggest" hidden></div>
+      </div>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact">
+    <summary class="blogEditor__accordionSummary">Excerpt</summary>
+    <div class="panel__body panel__body--tight">
+      <textarea class="input input--compact blogEditor__textarea" name="excerpt" rows="3" placeholder="Short summary"><%= p.excerpt || '' %></textarea>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact">
+    <summary class="blogEditor__accordionSummary">SEO</summary>
+    <div class="panel__body panel__body--tight blogEditor__stack">
+      <div class="blogEditor__serpPreview" aria-hidden="false">
+        <div class="blogEditor__serpUrl" id="blogSerpUrl">/blog/<%= p.slug || 'slug' %></div>
+        <div class="blogEditor__serpTitle" id="blogSerpTitle"><%= p.meta_title || p.title || 'Article title' %></div>
+        <div class="blogEditor__serpDesc" id="blogSerpDesc"><%= p.meta_description || p.excerpt || 'Add a meta description for search results.' %></div>
+      </div>
+      <label class="field">
+        <span class="field__label">Meta title <span class="cellMuted" data-seo-count="meta_title">0</span>/70</span>
+        <input class="input input--compact" name="meta_title" maxlength="70" value="<%= p.meta_title || '' %>">
+      </label>
+      <label class="field">
+        <span class="field__label">Meta description <span class="cellMuted" data-seo-count="meta_description">0</span>/320</span>
+        <textarea class="input input--compact blogEditor__textarea" name="meta_description" rows="2" maxlength="320"><%= p.meta_description || '' %></textarea>
+      </label>
+      <label class="field">
+        <span class="field__label">Canonical</span>
+        <input class="input input--compact" name="canonical_url" value="<%= p.canonical_url || '' %>">
+      </label>
+      <label class="field">
+        <span class="field__label">Robots</span>
+        <input class="input input--compact" name="robots" value="<%= p.robots || p.robots_directive || 'index,follow' %>">
+      </label>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact">
+    <summary class="blogEditor__accordionSummary">Social</summary>
+    <div class="panel__body panel__body--tight blogEditor__stack">
+      <label class="field">
+        <span class="field__label">OG title</span>
+        <input class="input input--compact" name="og_title" value="<%= p.og_title || '' %>">
+      </label>
+      <label class="field">
+        <span class="field__label">OG description</span>
+        <textarea class="input input--compact blogEditor__textarea" name="og_description" rows="2"><%= p.og_description || '' %></textarea>
+      </label>
+    </div>
+  </details>
+
+  <details class="blogEditor__accordion panel panel--compact">
+    <summary class="blogEditor__accordionSummary">Advanced</summary>
+    <div class="panel__body panel__body--tight blogEditor__stack">
+      <label class="field">
+        <span class="field__label">Keywords</span>
+        <input class="input input--compact" name="meta_keywords" value="<%= p.meta_keywords || '' %>">
+      </label>
+      <label class="field">
+        <span class="field__label">Source URL</span>
+        <input class="input input--compact" name="source_url" value="<%= p.source_url || '' %>">
+      </label>
+      <% if (isEdit && linkSuggestions) { %>
+        <div class="field">
+          <span class="field__label">Link ideas</span>
+          <ul class="blogEditor__linkList">
+            <% (linkSuggestions.verifiedFromAi || []).forEach((l) => { %>
+              <li><code class="mono"><%= l.path %></code> <%= l.title %></li>
+            <% }) %>
+            <% (linkSuggestions.blogPosts || []).forEach((l) => { %>
+              <li><code class="mono"><%= l.path %></code> <%= l.title %></li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
+    </div>
+  </details>
+
+  <% if (isEdit && ba.trash && session && session.admin && ['super','manager'].includes(session.admin.role)) { %>
+    <button class="btn btn--ghost btn--mini blogEditor__trashBtn" type="submit" form="blogTrashForm">Move to trash</button>
+  <% } %>
+</aside>
+
+<div class="filterDrawer blogEditor__settingsDrawer" id="blogEditorSettings" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-modal="true" aria-labelledby="blogEditorSettingsTitle">
+    <div class="filterDrawer__head">
+      <h2 id="blogEditorSettingsTitle" class="filterDrawer__title">Post settings</h2>
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact blogEditor__drawerBody">
+      <p class="cellMuted">Scroll down on this page for category, tags, SEO, and publishing fields.</p>
+    </div>
+  </aside>
+</div>

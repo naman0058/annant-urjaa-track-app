@@ -1,0 +1,29 @@
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Filename</span>
+      <input class="input input--compact" type="search" id="importFilterSearch" placeholder="Search files…" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Status</h3>
+    <label class="field">
+      <span class="field__label">Eligibility</span>
+      <select class="select select--compact" id="importFilterStatus">
+        <option value="all">All statuses</option>
+        <option value="supported">Supported</option>
+        <option value="skipped">Skipped</option>
+        <option value="unsupported">Unsupported</option>
+      </select>
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Selection</h3>
+    <div class="dashToolbar dashToolbar--tight blogImportFilterActions">
+      <button type="button" class="btn btn--ghost btn--mini" id="importSelectPageDrawer">Select this page</button>
+      <button type="button" class="btn btn--ghost btn--mini" id="importSelectAllDrawer">All eligible</button>
+      <button type="button" class="btn btn--ghost btn--mini" id="importSelectNoneDrawer">Clear</button>
+    </div>
+  </div>
+</div>

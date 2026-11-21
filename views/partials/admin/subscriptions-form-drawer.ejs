@@ -1,0 +1,70 @@
+<%
+  const drawerMode = typeof formDrawerMode !== 'undefined' ? formDrawerMode : 'create';
+  const isEdit = drawerMode === 'edit';
+  const drawerId = isEdit ? 'subEditDrawer' : 'subCreateDrawer';
+  const title = isEdit ? 'Edit subscription' : 'Create subscription';
+  const formId = isEdit ? 'subEditForm' : 'subCreateForm';
+  const action = isEdit ? '/admin/subscriptions/0' : '/admin/subscriptions';
+  const p = isEdit ? 'Edit' : 'Create';
+%>
+<div class="filterDrawer subFormDrawer" id="<%= drawerId %>" aria-hidden="true" data-sub-form="<%= drawerMode %>">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= title %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="<%= formId %>" class="filterDrawer__body filterDrawer__body--compact subFormDrawer__form" method="post" action="<%= action %>" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <% if (isEdit) { %>
+        <input type="hidden" name="_redirect" value="list">
+      <% } %>
+      <div class="filterDrawer__stack">
+      <% if (!isEdit) { %>
+        <label class="field">
+          <span class="field__label">Member</span>
+          <input type="hidden" name="user_id" id="subCreateUserId" required>
+          <div class="lookupWrap">
+            <input class="input input--compact" type="search" id="subCreateUserSearch" placeholder="Search name or email" autocomplete="off">
+            <div class="lookupDropdown" id="subCreateUserResults" hidden></div>
+          </div>
+        </label>
+      <% } %>
+      <label class="field">
+        <span class="field__label">Track</span>
+        <% if (hasTrackId) { %>
+          <input type="hidden" name="track" id="<%= p %>TrackId" required>
+          <div class="lookupWrap">
+            <input class="input input--compact" type="search" id="<%= p %>TrackSearch" placeholder="Search track title" autocomplete="off">
+            <div class="lookupDropdown" id="<%= p %>TrackResults" hidden></div>
+          </div>
+        <% } else { %>
+          <input class="input input--compact" type="text" name="track" id="<%= p %>TrackText" required>
+        <% } %>
+      </label>
+      <div class="fieldGrid fieldGrid--date">
+        <label class="field">
+          <span class="field__label">Start</span>
+          <input class="input input--compact" type="date" name="start_date" id="<%= p %>Start">
+        </label>
+        <label class="field">
+          <span class="field__label">End</span>
+          <input class="input input--compact" type="date" name="end_date" id="<%= p %>End">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status" id="<%= p %>Status" required>
+          <option value="active" <%= !isEdit ? 'selected' : '' %>>Active</option>
+          <option value="expired">Expired</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </label>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= formId %>"><%= isEdit ? 'Save' : 'Create' %></button>
+    </div>
+  </aside>
+</div>

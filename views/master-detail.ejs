@@ -1,0 +1,64 @@
+<%
+  const c = code || {};
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const displayMemberName = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return '—';
+    return s.toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase());
+  };
+  const badge = String(c.status || '').toLowerCase() === 'active' ? 'success' : 'danger';
+  const backHref = typeof returnQs === 'string' && returnQs ? ('/admin/masters?' + returnQs) : '/admin/masters';
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const isSuper = typeof session !== 'undefined' && session.admin && session.admin.role === 'super';
+%>
+<div class="page" data-masters data-master-detail>
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Master code</h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= badge %>"><%= c.status %></span>
+        · <span class="mono masterCodeInline"><%= c.code %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to list</a>
+      <button type="button" class="btn btn--ghost btn--mini" data-copy-code="<%= c.code %>">Copy code</button>
+      <% if (canWrite) { %>
+        <form method="post" action="/admin/masters/<%= c.id %>/toggle" class="masterInlineForm">
+          <%- include('partials/csrf-field') %>
+          <input type="hidden" name="return" value="detail">
+          <button type="submit" class="btn btn--ghost btn--mini"><%= c.status==='active' ? 'Disable' : 'Enable' %></button>
+        </form>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <dl class="detailList detailList--grid masterDetailList">
+        <div><dt>Code</dt><dd class="mono"><%= c.code %></dd></div>
+        <div><dt>Member</dt><dd>
+          <%= displayMemberName(c.member_user_name) %>
+          <% if (c.member_user_id) { %> · <a href="/admin/users/<%= c.member_user_id %>">Profile</a><% } %>
+        </dd></div>
+        <div><dt>Valid from</dt><dd class="mono"><%= fmt(c.valid_from) %></dd></div>
+        <div><dt>Valid to</dt><dd class="mono"><%= fmt(c.valid_to) %></dd></div>
+        <div><dt>Redemptions</dt><dd class="mono"><%= c.redeemed_count || 0 %></dd></div>
+        <div><dt>Notes</dt><dd><%= c.notes || '—' %></dd></div>
+        <div><dt>Created</dt><dd class="mono"><%= fmt(c.created_at) %></dd></div>
+      </dl>
+      <% if (isSuper) { %>
+        <form method="post" action="/admin/masters/<%= c.id %>/delete" class="masterDetailDelete" onsubmit="return confirm('Delete this master code and redemption logs?');">
+          <%- include('partials/csrf-field') %>
+          <input type="hidden" name="return" value="list">
+          <button type="submit" class="btn btn--danger btn--mini">Delete permanently</button>
+        </form>
+      <% } %>
+    </div>
+  </section>
+</div>
+<script src="/js/admin-masters.js?v=1" defer></script>

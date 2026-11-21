@@ -1,0 +1,131 @@
+<%
+  const rows = subs || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+  const sd = subDisplay || {};
+  const badge = (s) => sd.statusBadgeClass ? sd.statusBadgeClass(s) : 'info';
+  const label = (s) => sd.formatStatusLabel ? sd.formatStatusLabel(s) : s;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const hasRows = rows.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/subscriptions/' + id + ret;
+  const displayMemberName = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return '—';
+    return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+%>
+<div class="panel__body subTableBody<%= hasRows ? '' : ' panel__body--empty' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+      <p class="dashEmpty__label">
+        <%= datasetEmpty ? 'No subscriptions yet.' : 'No matching subscriptions.' %>
+      </p>
+      <% if (filteredEmpty) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/subscriptions">Clear filters</a>
+      <% } %>
+      <% if (datasetEmpty && canWrite) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-filter-open="subCreateDrawer">Create subscription</button>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="subTableWrap">
+      <table class="table table--dashboard table--compact table--subsList" id="subsTable">
+        <thead>
+          <tr>
+            <th scope="col">Subscription</th>
+            <th scope="col">Member</th>
+            <th scope="col">Track</th>
+            <th scope="col">Status</th>
+            <th scope="col">Start</th>
+            <th scope="col">End</th>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((s) => { %>
+            <tr data-sub-row="<%= s.id %>">
+              <td>
+                <a class="mono" href="<%= detailHref(s.id) %>">#<%= s.id %></a>
+              </td>
+              <td class="col-member">
+                <span class="subMemberName"><%= displayMemberName(s.user_name) %></span>
+              </td>
+              <td title="<%= s.track_key %>"><%= s.track_title || s.track_key || '—' %></td>
+              <td><span class="statusBadge statusBadge--<%= badge(s.status) %>"><%= label(s.status) %></span></td>
+              <td class="mono"><%= fmt(s.start_date) %></td>
+              <td class="mono"><%= fmt(s.end_date) %></td>
+              <td class="mono col-date"><%= fmt(s.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for subscription <%= s.id %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(s.id) %>">View</a></li>
+                      <% if (canWrite) { %>
+                        <li>
+                          <button type="button" class="rowMenu__btn" data-sub-edit
+                            data-id="<%= s.id %>"
+                            data-track="<%= s.track_key %>"
+                            data-track-title="<%= (s.track_title||'').replace(/"/g,'&quot;') %>"
+                            data-status="<%= s.status %>"
+                            data-start="<%= fmt(s.start_date) !== '—' ? fmt(s.start_date) : '' %>"
+                            data-end="<%= fmt(s.end_date) !== '—' ? fmt(s.end_date) : '' %>"
+                          >Edit</button>
+                        </li>
+                        <% if (s.status !== 'cancelled') { %>
+                          <li>
+                            <form method="post" action="/admin/subscriptions/<%= s.id %>/cancel" class="rowMenu__form" onsubmit="return confirm('Cancel this subscription?');">
+                              <%- include('../csrf-field') %>
+                              <button type="submit" class="rowMenu__btn">Cancel</button>
+                            </form>
+                          </li>
+                        <% } %>
+                        <% if (session.admin.role === 'super') { %>
+                          <li>
+                            <form method="post" action="/admin/subscriptions/<%= s.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Permanently delete this subscription?');">
+                              <%- include('../csrf-field') %>
+                              <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pg.totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Subscriptions pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/subscriptions<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= pg.totalPages %></span>
+          <% if (pg.page < pg.totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/subscriptions<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

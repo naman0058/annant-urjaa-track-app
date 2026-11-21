@@ -1,0 +1,75 @@
+<%
+  const tx = txDisplay || {};
+  const inr = (p) => '₹' + (Number(p || 0) / 100).toLocaleString('en-IN');
+  const pg = transactionsPage || {};
+  const rows = pg.rows || [];
+  const hasRows = rows.length > 0;
+%>
+<section class="panel panel--reportTx">
+  <div class="panel__head panel__head--split">
+    <h3 class="panel__title">Transactions</h3>
+    <% if (hasRows) { %>
+      <a class="btn btn--ghost btn--mini" href="/admin/reports.csv?<%= qsCsv('transactions') %>">Export</a>
+    <% } %>
+  </div>
+  <div class="panel__body panel__body--reportTx<%= hasRows ? '' : ' panel__body--empty' %>">
+    <% if (!hasRows) { %>
+      <div class="dashEmpty" role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+        <p class="dashEmpty__label">No transactions in this period.</p>
+      </div>
+    <% } else { %>
+      <div class="reportTxTableWrap">
+        <table class="table table--dashboard table--compact table--reportTx">
+          <thead>
+            <tr>
+              <th scope="col">Order</th>
+              <th scope="col">Customer</th>
+              <th scope="col" class="col-amount">Amount</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="col-date">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((t) => {
+              const badge = tx.txStatusBadgeClass ? tx.txStatusBadgeClass(t.status) : 'info';
+              const orderShort = tx.shortOrderId ? tx.shortOrderId(t.order_id) : (t.order_id || '—');
+            %>
+              <tr>
+                <td class="col-order">
+                  <a class="mono" href="/admin/transactions/<%= t.id %>" title="<%= t.order_id || '' %>"><%= orderShort %></a>
+                </td>
+                <td class="col-email" title="<%= t.email || '' %>"><%= t.email || '—' %></td>
+                <td class="mono col-amount"><%= inr(t.amount) %></td>
+                <td><span class="statusBadge statusBadge--<%= badge %>"><%= tx.formatTxStatus ? tx.formatTxStatus(t.status) : t.status %></span></td>
+                <td class="mono col-date"><%= tx.formatTxDateTime ? tx.formatTxDateTime(t.created_at) : t.created_at %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% if (pg.totalPages > 1 || pg.total > rows.length) { %>
+        <div class="reportTxPager" aria-label="Transaction list pagination">
+          <span class="reportTxPager__info">
+            <% const from = (pg.page - 1) * pg.pageSize + 1; %>
+            <% const to = from + rows.length - 1; %>
+            <%= from %>–<%= to %> of <%= pg.total %>
+          </span>
+          <div class="reportTxPager__nav">
+            <% if (pg.page > 1) { %>
+              <a class="btn btn--ghost btn--mini" href="<%= qsTab('transactions', { page: pg.page - 1 }) %>">Prev</a>
+            <% } else { %>
+              <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+            <% } %>
+            <span class="reportTxPager__page"><%= pg.page %> / <%= pg.totalPages %></span>
+            <% if (pg.page < pg.totalPages) { %>
+              <a class="btn btn--ghost btn--mini" href="<%= qsTab('transactions', { page: pg.page + 1 }) %>">Next</a>
+            <% } else { %>
+              <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+</section>

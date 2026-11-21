@@ -1,0 +1,71 @@
+<%
+  const p = post || {};
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const imgSrc = (path) => {
+    if (!path) return '';
+    if (String(path).startsWith('http')) return path;
+    return '/' + String(path).replace(/^\/+/, '');
+  };
+  const statusBadge = (s) => {
+    const map = { published: 'success', draft: 'info', review: 'warning', scheduled: 'warning', archived: 'danger' };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+  const backHref = typeof returnQs === 'string' && returnQs ? ('/admin/blog?' + returnQs) : '/admin/blog';
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const src = imgSrc(p.featured_image);
+%>
+<div class="page" data-blog data-blog-detail data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title"><%= p.title %></h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= statusBadge(p.status) %>"><%= p.status %></span>
+        · <span class="mono">/blog/<%= p.slug %></span>
+        <% if (p.ai_rewritten) { %> · <span class="blogFlag">AI</span><% } %>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to list</a>
+      <% if (p.status === 'published') { %>
+        <a class="btn btn--ghost btn--mini" href="/blog/<%= p.slug %>" target="_blank" rel="noopener">Open site</a>
+      <% } %>
+      <% if (canWrite) { %>
+        <a class="btn btn--primary btn--mini" href="/admin/blog/<%= p.id %>/edit">Edit</a>
+        <% if (ba.ai) { %><a class="btn btn--ghost btn--mini" href="/admin/blog/<%= p.id %>/ai/preview">AI</a><% } %>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <div class="blogDetailHero">
+        <% if (src) { %>
+          <img class="blogDetailThumb" src="<%= src %>" alt="<%= p.featured_image_alt || '' %>">
+        <% } else { %>
+          <div class="blogDetailThumb blogDetailThumb--empty" aria-hidden="true">No image</div>
+        <% } %>
+        <dl class="detailList detailList--grid blogDetailList">
+          <div><dt>Excerpt</dt><dd><%= p.excerpt || '—' %></dd></div>
+          <div><dt>Meta title</dt><dd><%= p.meta_title || '—' %></dd></div>
+          <div><dt>SEO score</dt><dd class="mono"><%= p.seo_score != null ? p.seo_score : '—' %></dd></div>
+          <div><dt>Published</dt><dd class="mono"><%= fmt(p.published_at) %></dd></div>
+          <div><dt>Updated</dt><dd class="mono"><%= fmt(p.updated_at) %></dd></div>
+          <div><dt>Created</dt><dd class="mono"><%= fmt(p.created_at) %></dd></div>
+        </dl>
+      </div>
+      <% if (canWrite && ba.trash) { %>
+        <form method="post" action="/admin/blog/<%= p.id %>/delete" class="blogDetailDelete" onsubmit="return confirm('Move this post to trash?');">
+          <%- include('../partials/csrf-field') %>
+          <input type="hidden" name="return" value="list">
+          <button type="submit" class="btn btn--danger btn--mini">Move to trash</button>
+        </form>
+      <% } %>
+    </div>
+  </section>
+</div>
+<script src="/js/admin-blog.js?v=1" defer></script>

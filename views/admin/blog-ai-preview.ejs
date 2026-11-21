@@ -1,0 +1,109 @@
+<%
+  let bundle = contentJson || {};
+  if (typeof bundle === 'string') {
+    try { bundle = JSON.parse(bundle); } catch { bundle = {}; }
+  }
+  const warnings = (post && post.seo_warnings)
+    ? (Array.isArray(post.seo_warnings) ? post.seo_warnings : [])
+    : (bundle.review_warnings || []);
+%>
+
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">AI preview — <%= post.title %></h2>
+      <div class="dash__subtitle">Status: <b><%= post.status %></b> · AI never auto-publishes. Review, edit, then use Publish on the edit screen.</div>>
+    </div>
+    <div class="dash__actions">
+      <a class="btn btn--ghost" href="/admin/blog/<%= post.id %>/edit">Edit post</a>
+      <a class="btn btn--ghost" href="/admin/blog/ai">AI tools</a>
+    </div>>
+  </div>
+
+  <div> class="panel">
+    <div class="panel__head"><h3 class="panel__title">Generate</h3></div>
+    <div class="panel__body">
+      <form method="post" action="/admin/blog/<%= post.id %>/ai/generate" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label class="label">Mode</label>
+          <select class="select" name="mode">
+            <option value="full">Full rewrite + metadata</option>
+            <option value="content">Regenerate content only</option>
+            <option value="metadata">Regenerate metadata only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label"><input type="checkbox" name="preview_only" value="1"> Preview only (session)</label>
+        </div>
+        <button class="btn btn--primary" type="submit">Run AI</button>
+      </form>
+
+      <% if (preview) { %>
+        <form method="post" action="/admin/blog/<%= post.id %>/ai/apply-preview" style="margin-top:12px;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn--gold" type="submit">Apply session preview to draft</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (warnings && warnings.length) { %>
+    <div class="panel">
+      <div> class="panel__head"><h3 class="panel__title">Review warnings</h3></div>
+      <div class="panel__body">
+        <ul>
+          <% warnings.forEach(w => { %><li><%= w %></li><% }) %>
+        </ul>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (preview) { %>
+    <div class="panel">
+      <div class="panel__head"><h3 class="panel__title">Session preview (not saved)</h3></div>
+      <div class="panel__body">
+        <pre class="mono" style="white-space:pre-wrap;max-height:420px;overflow:auto;font-size:12px;"><%= JSON.stringify(preview, null, 2) %></pre>
+      </div>>
+    </div>
+  <% } %>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Stored AI bundle</h3></div>
+    <div class="panel__body">
+      <% if (bundle.faqs && bundle.faqs.length) { %>
+        <h4>FAQs</h4>
+        <ul>
+          <% bundle.faqs.forEach(f => { %>
+            <li><strong><%= f.question %></strong><br><%= f.answer %></li>
+          <% }) %>
+        </ul>
+      <% } %>
+      <% if (bundle.structured_data) { %>
+        <h4>JSON-LD (server-generated)</h4>
+        <pre class="mono" style="font-size:12px;"><%= JSON.stringify(bundle.structured_data, null, 2) %></pre>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Revisions</h3></div>
+    <div class="panel__body panel__body--tight">
+      <table class="table">
+        <thead><tr><th>#</th><th>Summary</th><th>When</th></tr></thead>
+        <tbody>
+          <% if (!(revisions||[]).length) { %>
+            <tr><td colspan="3" class="empty">No revisions yet. AI runs save a snapshot first.</td></tr>
+          <% } %>
+          <% (revisions||[]).forEach(r => { %>
+            <tr>
+              <td class="mono"><%= r.revision_number %></td>
+              <td><%= r.change_summary %></td>
+              <td class="mono"><%= new Date(r.created_at).toLocaleString() %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,50 @@
+<%
+  const f = filters || {};
+  const pg = pagination || { limit: 20 };
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Title, slug, or excerpt</span>
+      <input class="input input--compact" type="search" name="q" value="<%= f.q || '' %>" placeholder="Search posts" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Workflow</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status">
+          <% ['all','draft','review','scheduled','published','archived'].forEach((s) => { %>
+            <option value="<%= s %>" <%= (f.status||'all')===s?'selected':'' %>><%= s === 'all' ? 'Any' : s %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Sort</span>
+        <select class="select select--compact" name="sort">
+          <option value="updated_at" <%= (f.sort||'updated_at')==='updated_at'?'selected':'' %>>Updated</option>
+          <option value="created_at" <%= f.sort==='created_at'?'selected':'' %>>Created</option>
+          <option value="published_at" <%= f.sort==='published_at'?'selected':'' %>>Published</option>
+          <option value="title" <%= f.sort==='title'?'selected':'' %>>Title</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Direction</span>
+        <select class="select select--compact" name="dir">
+          <option value="desc" <%= (f.dir||'desc')==='desc'?'selected':'' %>>Newest first</option>
+          <option value="asc" <%= f.dir==='asc'?'selected':'' %>>Oldest first</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Per page</span>
+        <select class="select select--compact" name="limit">
+          <% [10,20,50,100].forEach((n) => { %>
+            <option value="<%= n %>" <%= Number(f.limit || pg.limit || 20)===n?'selected':'' %>><%= n %></option>
+          <% }) %>
+        </select>
+      </label>
+    </div>
+  </div>
+</div>

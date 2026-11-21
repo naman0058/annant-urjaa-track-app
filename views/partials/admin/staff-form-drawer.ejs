@@ -1,0 +1,60 @@
+<%
+  const drawerMode = typeof formDrawerMode !== 'undefined' ? formDrawerMode : 'create';
+  const isEdit = drawerMode === 'edit';
+  const drawerId = isEdit ? 'staffEditDrawer' : 'staffCreateDrawer';
+  const title = isEdit ? 'Edit staff' : 'Add staff';
+  const formId = isEdit ? 'staffEditForm' : 'staffCreateForm';
+  const action = isEdit ? '/admin/staff/0' : '/admin/staff';
+%>
+<div class="filterDrawer staffFormDrawer" id="<%= drawerId %>" aria-hidden="true" data-staff-form="<%= drawerMode %>">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= title %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="<%= formId %>" class="filterDrawer__body filterDrawer__body--compact staffFormDrawer__form" method="post" action="<%= action %>" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <input type="hidden" name="_list_return" id="<%= isEdit ? 'staffEditListReturn' : 'staffCreateListReturn' %>" value="">
+      <% if (isEdit) { %>
+        <input type="hidden" name="_redirect" id="staffEditRedirect" value="list">
+      <% } %>
+      <div class="filterDrawer__stack">
+        <label class="field">
+          <span class="field__label">Name</span>
+          <input class="input input--compact" type="text" name="name" id="<%= isEdit ? 'staffEditName' : 'staffCreateName' %>" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Email</span>
+          <% if (isEdit) { %>
+            <input class="input input--compact" type="email" id="staffEditEmailDisplay" readonly tabindex="-1">
+          <% } else { %>
+            <input class="input input--compact" type="email" name="email" id="staffCreateEmail" required>
+          <% } %>
+        </label>
+        <label class="field">
+          <span class="field__label">Password</span>
+          <input class="input input--compact" type="password" name="password" id="<%= isEdit ? 'staffEditPassword' : 'staffCreatePassword' %>" <%= isEdit ? '' : 'required minlength="8"' %> placeholder="<%= isEdit ? 'Leave blank to keep' : 'Min 8 characters' %>">
+        </label>
+        <label class="field">
+          <span class="field__label">Role</span>
+          <select class="select select--compact" name="role" id="<%= isEdit ? 'staffEditRole' : 'staffCreateRole' %>">
+            <option value="super">Super</option>
+            <option value="manager" <%= !isEdit ? 'selected' : '' %>>Manager</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </label>
+        <% if (isEdit) { %>
+          <label class="field field--check">
+            <input type="checkbox" name="is_active" id="staffEditActive" value="1">
+            <span class="field__label">Account active</span>
+          </label>
+        <% } %>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= formId %>"><%= isEdit ? 'Save' : 'Create' %></button>
+    </div>
+  </aside>
+</div>

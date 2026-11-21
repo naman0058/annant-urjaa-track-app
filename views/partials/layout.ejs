@@ -3,32 +3,44 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%= title %> | Admin</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <title><%= title %> | iTorus Admin</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css?v=15">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/js/admin-row-menu.js?v=1" defer></script>
 </head>
-<body class="bg">
-  <div class="layout">
+<body class="admin-app">
+  <div class="admin-layout" id="adminLayout">
+    <div class="admin-overlay" id="adminOverlay" aria-hidden="true"></div>
     <%- include('./sidebar') %>
-    <main class="content">
+    <div class="admin-main">
       <%- include('./header') %>
-      <section class="page">
-        <% if (flash.error && flash.error.length) { %>
-          <div class="alert error">
-            <% flash.error.forEach(e => { %><div><%= e %></div><% }) %>
-          </div>
-        <% } %>
-        <% if (flash.success && flash.success.length) { %>
-          <div class="alert success">
-            <% flash.success.forEach(e => { %><div><%= e %></div><% }) %>
-          </div>
-        <% } %>
+
+      <% if ((flash.error && flash.error.length) || (flash.success && flash.success.length)) { %>
+        <div class="admin-toasts" id="adminToasts" role="status" aria-live="polite">
+          <% (flash.error || []).forEach(e => { %>
+            <div class="admin-toast admin-toast--error">
+              <button type="button" class="admin-toast__close" aria-label="Dismiss">×</button>
+              <%= e %>
+            </div>
+          <% }) %>
+          <% (flash.success || []).forEach(e => { %>
+            <div class="admin-toast admin-toast--success">
+              <button type="button" class="admin-toast__close" aria-label="Dismiss">×</button>
+              <%= e %>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <section class="admin-page">
         <%- body %>
       </section>
-    </main>
+    </div>
   </div>
+  <script src="/js/admin.js?v=2" defer></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+<section class="statGrid">
+  <div class="statCard"><div class="statCard__label">New members</div><div class="statCard__value"><%= st.totalUsers %></div></div>
+</section>
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">Registration growth</h3></div>
+  <div class="panel__body panel__body--chart panel__body--chart--bar" id="reportsMembersWrap">
+    <canvas id="reportsMembersChart"></canvas>
+    <div class="chartEmpty dashEmpty" id="reportsMembersEmpty" hidden role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◌</span>
+      <p class="dashEmpty__label">No new members in this period.</p>
+    </div>
+  </div>
+</section>

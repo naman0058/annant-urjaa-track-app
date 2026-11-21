@@ -1,0 +1,106 @@
+<%
+  const entries = rows || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 40, total: 0, totalPages: 1 };
+  const hasRows = entries.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try {
+      return new Date(d).toISOString().slice(0, 16).replace('T', ' ');
+    } catch {
+      return '—';
+    }
+  };
+  const qsFn = typeof qsBase === 'function' ? qsBase : () => '';
+  const prettyMeta = (raw) => {
+    if (!raw) return '';
+    try {
+      const o = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return JSON.stringify(o, null, 2);
+    } catch {
+      return String(raw);
+    }
+  };
+%>
+<div class="panel__body auditTableBody<%= hasRows ? '' : ' panel__body--empty' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+      <p class="dashEmpty__label">
+        <%= datasetEmpty ? 'No audit entries yet.' : 'No matching audit events.' %>
+      </p>
+      <% if (filteredEmpty) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/audit">Clear filters</a>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="auditTableWrap">
+      <table class="table table--dashboard table--compact table--auditList" id="auditTable">
+        <thead>
+          <tr>
+            <th scope="col" class="col-date">When</th>
+            <th scope="col">Actor</th>
+            <th scope="col">Action</th>
+            <th scope="col">Entity</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% entries.forEach((r) => { %>
+            <tr data-audit-row="<%= r.id %>">
+              <td class="mono col-date col-date--sm"><%= fmt(r.created_at) %></td>
+              <td class="auditActorCell"><%= r.actor_email || '—' %></td>
+              <td><span class="statusBadge statusBadge--info"><%= r.action %></span></td>
+              <td class="mono auditEntityCell"><%= r.entity_type %><% if (r.entity_id) { %> · <%= r.entity_id %><% } %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for audit <%= r.id %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li>
+                        <button
+                          type="button"
+                          class="rowMenu__btn"
+                          data-audit-detail
+                          data-id="<%= r.id %>"
+                          data-action="<%= (r.action||'').replace(/"/g,'&quot;') %>"
+                          data-actor="<%= (r.actor_email||'').replace(/"/g,'&quot;') %>"
+                          data-entity="<%= (r.entity_type||'').replace(/"/g,'&quot;') %> <%= r.entity_id || '' %>"
+                          data-when="<%= fmt(r.created_at) %>"
+                          data-metadata="<%= encodeURIComponent(prettyMeta(r.metadata_json).slice(0, 8000)) %>"
+                        >View details</button>
+                      </li>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pg.totalPages > 1 || pg.total > entries.length) { %>
+      <div class="reportTxPager" aria-label="Audit pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + entries.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/audit<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= pg.totalPages %></span>
+          <% if (pg.page < pg.totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/audit<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

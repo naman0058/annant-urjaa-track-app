@@ -1,0 +1,36 @@
+<%
+  const p = post || {};
+%>
+<div class="blogEditor__mainCol">
+  <input
+    class="blogEditor__titleInput"
+    name="title"
+    id="blogTitleInput"
+    required
+    placeholder="Article title"
+    value="<%= p.title || '' %>"
+    autocomplete="off"
+  />
+
+  <div class="blogEditor__permalink">
+    <span class="blogEditor__permalinkLabel">Permalink</span>
+    <span class="blogEditor__permalinkPath">/blog/<span id="blogPermalinkSlug"><%= p.slug || '…' %></span></span>
+    <button type="button" class="btn btn--ghost btn--mini" id="blogPermalinkEdit">Edit slug</button>
+  </div>
+  <input class="blogEditor__slugInput mono" name="slug" id="blogSlugInput" value="<%= p.slug || '' %>" placeholder="slug" autocomplete="off">
+
+  <section class="blogEditor__editorShell panel panel--compact">
+    <div class="blogEditor__toolbar" id="blogTiptapToolbar" role="toolbar" aria-label="Formatting"></div>
+    <div class="blogEditor__rteWrap">
+      <div id="blogTiptapEditor"></div>
+      <textarea name="content_html" id="blogContentHtml" class="blogEditor__htmlSink" hidden aria-hidden="true"><%= p.content_html || '' %></textarea>
+    </div>
+    <input type="file" id="blogContentImageInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+  </section>
+
+  <footer class="blogEditor__mainMeta">
+    <span id="blogEditorWordCount">0 words</span>
+    <span aria-hidden="true">·</span>
+    <span id="blogEditorReadingTime">~1 min read</span>
+  </footer>
+</div>

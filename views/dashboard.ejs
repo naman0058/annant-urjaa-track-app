@@ -1,393 +1,300 @@
 <%
   const f = filters || {};
   const r = ranges || {};
-  const trackList = (typeof trackOptions !== 'undefined' && trackOptions) ? trackOptions : [];
-
-  const qs = (obj) => new URLSearchParams(obj).toString();
+  const st = stats || {};
+  const trackList = trackOptions || [];
+  const meta = chartMeta || {};
+  const tx = txDisplay || {};
+  const inr = (paise) => '₹' + (Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const qsBase = (extra) => {
+    const p = new URLSearchParams();
+    if (f.preset) p.set('preset', f.preset);
+    if (f.preset === 'custom') {
+      if (f.from) p.set('from', f.from);
+      if (f.to) p.set('to', f.to);
+    }
+    if (f.track) p.set('track', f.track);
+    if (f.sub_status) p.set('sub_status', f.sub_status);
+    if (f.tx_status) p.set('tx_status', f.tx_status);
+    if (f.granularity && f.granularity_set === '1') {
+      p.set('granularity', f.granularity);
+      p.set('granularity_set', '1');
+    }
+    if (extra) Object.keys(extra).forEach((k) => p.set(k, extra[k]));
+    const s = p.toString();
+    return s ? ('?' + s) : '';
+  };
+  const presetLabels = {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    '7d': 'Last 7 days',
+    '30d': 'Last 30 days',
+    '90d': 'Last 90 days',
+    this_month: 'This month',
+    last_month: 'Last month',
+    custom: 'Custom range',
+  };
+  const periodLabel = presetLabels[f.preset] || 'Custom range';
 %>
-
-<div class="db">
-
-  <!-- HEADER -->
-  <header class="db__head">
+<div class="page" data-dashboard>
+  <header class="pageHeader pageHeader--compact">
     <div>
-      <h1 class="db__title">Admin Dashboard</h1>
-      <div class="db__sub">
-        Showing <span class="mono"><%= r.from %></span> to <span class="mono"><%= r.to %></span>
-        (previous: <span class="mono"><%= r.prevFrom %></span> to <span class="mono"><%= r.prevTo %></span>).
-      </div>
+      <h1 class="pageHeader__title">Dashboard Overview</h1>
+      <span class="pageHeader__period">
+        <%= periodLabel %> · <span class="mono"><%= r.from %></span> – <span class="mono"><%= r.to %></span>
+        <% if (typeof activeFilterCount !== 'undefined' && activeFilterCount > 0) { %>
+          · <span class="filterChip" style="display:inline-flex;margin:0;"><%= activeFilterCount %> filter<%= activeFilterCount > 1 ? 's' : '' %> active</span>
+        <% } %>
+      </span>
     </div>
-
-    <div class="db__quick">
-      <a class="chipBtn <%= f.preset==='7d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'7d' }) %>">Last 7 days</a>
-      <a class="chipBtn <%= f.preset==='30d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'30d' }) %>">Last 30 days</a>
-      <a class="chipBtn <%= f.preset==='90d'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'90d' }) %>">Last 90 days</a>
-      <a class="chipBtn <%= f.preset==='this_month'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'this_month' }) %>">This month</a>
-      <a class="chipBtn <%= f.preset==='last_month'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'last_month' }) %>">Last month</a>
-      <a class="chipBtn <%= f.preset==='ytd'?'chipBtn--active':'' %>" href="/admin/dashboard?<%= qs({ preset:'ytd' }) %>">YTD</a>
+    <div class="pageHeader__actions dashToolbar">
+      <form class="dashPreset" method="get" action="/admin/dashboard" id="dashPresetForm">
+        <% if (f.track) { %><input type="hidden" name="track" value="<%= f.track %>"><% } %>
+        <% if (f.sub_status && f.sub_status !== 'all') { %><input type="hidden" name="sub_status" value="<%= f.sub_status %>"><% } %>
+        <% if (f.tx_status && f.tx_status !== 'captured') { %><input type="hidden" name="tx_status" value="<%= f.tx_status %>"><% } %>
+        <select class="select select--compact" name="preset" id="dashPresetSelect" aria-label="Date period">
+          <% if (f.preset === 'custom') { %>
+            <option value="custom" selected disabled>Custom range</option>
+          <% } %>
+          <option value="today" <%= f.preset==='today'?'selected':'' %>>Today</option>
+          <option value="yesterday" <%= f.preset==='yesterday'?'selected':'' %>>Yesterday</option>
+          <option value="7d" <%= f.preset==='7d'?'selected':'' %>>Last 7 days</option>
+          <option value="30d" <%= !f.preset||f.preset==='30d'?'selected':'' %>>Last 30 days</option>
+          <option value="90d" <%= f.preset==='90d'?'selected':'' %>>Last 90 days</option>
+          <option value="this_month" <%= f.preset==='this_month'?'selected':'' %>>This month</option>
+          <option value="last_month" <%= f.preset==='last_month'?'selected':'' %>>Last month</option>
+        </select>
+      </form>
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-open="dashFilters">
+        Filters<% if (activeFilterCount > 0) { %> (<%= activeFilterCount %>)<% } %>
+      </button>
+      <button type="button" class="btn btn--ghost btn--mini" id="dashRefreshBtn" title="Refresh metrics">Refresh</button>
     </div>
   </header>
 
-  <!-- FILTER BAR -->
-  <section class="panel">
-    <div class="panel__head panel__head--split">
-      <div>
-        <h2 class="panel__title">Filters</h2>
-        <p class="panel__desc">Use filters like large-scale commerce dashboards. Charts and tables update together.</p>
-      </div>
-
-      <div class="panel__meta">
-        <span class="pill">Days: <%= r.days %></span>
-        <span class="pill">Theme: Black / Gold</span>
-      </div>
+  <form id="dashFiltersForm" method="get" action="/admin/dashboard">
+    <div class="filterDrawer" id="dashFilters" aria-hidden="true">
+      <div class="filterDrawer__backdrop" data-filter-close></div>
+      <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-modal="true" aria-labelledby="dashFiltersTitle">
+        <div class="filterDrawer__head">
+          <h2 id="dashFiltersTitle" class="filterDrawer__title">Filters</h2>
+          <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close filters">×</button>
+        </div>
+        <div class="filterDrawer__body filterDrawer__body--compact">
+          <p class="field__hint" id="filterDateError" role="alert" hidden></p>
+          <div class="filterDrawer__stack">
+            <div class="filterDrawer__section">
+              <h3 class="filterDrawer__sectionTitle">Date range</h3>
+              <input type="hidden" name="preset" value="custom">
+              <div class="fieldGrid fieldGrid--date">
+                <label class="field">
+                  <span class="field__label" for="filterFrom">From</span>
+                  <input class="input input--compact" type="date" id="filterFrom" name="from" value="<%= f.from || '' %>" required>
+                </label>
+                <label class="field">
+                  <span class="field__label" for="filterTo">To</span>
+                  <input class="input input--compact" type="date" id="filterTo" name="to" value="<%= f.to || '' %>" required>
+                </label>
+              </div>
+            </div>
+            <div class="filterDrawer__section">
+              <h3 class="filterDrawer__sectionTitle">Business</h3>
+              <div class="filterDrawer__grid">
+                <label class="field">
+                  <span class="field__label" for="filterTrack">Track</span>
+                  <select class="select select--compact" id="filterTrack" name="track">
+                    <option value="">All</option>
+                    <% trackList.forEach(t => { %>
+                      <option value="<%= t %>" <%= String(f.track)===String(t)?'selected':'' %>><%= t %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label" for="filterSubStatus">Subscriptions</span>
+                  <select class="select select--compact" id="filterSubStatus" name="sub_status">
+                    <% ['all','active','expired','cancelled'].forEach(s => { %>
+                      <option value="<%= s %>" <%= (f.sub_status||'all')===s?'selected':'' %>><%= s === 'all' ? 'All' : s %></option>
+                    <% }) %>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span class="field__label" for="filterTxStatus">Transactions</span>
+                <select class="select select--compact" id="filterTxStatus" name="tx_status">
+                  <% ['captured','all','created','failed','refunded'].forEach(s => { %>
+                    <option value="<%= s %>" <%= (f.tx_status||'captured')===s?'selected':'' %>><%= s %></option>
+                  <% }) %>
+                </select>
+                <span class="field__hint">Revenue defaults to captured; member counts ignore tx status.</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="filterDrawer__foot filterDrawer__foot--compact">
+          <a class="btn btn--ghost btn--mini" href="/admin/dashboard?preset=30d">Reset</a>
+          <button type="submit" class="btn btn--primary btn--mini">Apply</button>
+        </div>
+      </aside>
     </div>
+  </form>
 
-    <div class="panel__body">
-      <form class="filters" method="get" action="/admin/dashboard">
-        <div class="field">
-          <label class="label">From</label>
-          <input class="input" type="date" name="from" value="<%= f.from %>">
-        </div>
-
-        <div class="field">
-          <label class="label">To</label>
-          <input class="input" type="date" name="to" value="<%= f.to %>">
-        </div>
-
-        <div class="field">
-          <label class="label">Track</label>
-          <select class="select" name="track">
-            <option value="">All tracks</option>
-           <% trackList.forEach(t => { %>
-              <option value="<%= t %>" <%= (f.track===t)?'selected':'' %>><%= t %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="label">Subscription status</label>
-          <select class="select" name="sub_status">
-            <option value="all" <%= f.sub_status==='all'?'selected':'' %>>All</option>
-            <option value="active" <%= f.sub_status==='active'?'selected':'' %>>Active</option>
-            <option value="expired" <%= f.sub_status==='expired'?'selected':'' %>>Expired</option>
-            <option value="cancelled" <%= f.sub_status==='cancelled'?'selected':'' %>>Cancelled</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="label">Transaction status</label>
-          <select class="select" name="tx_status">
-            <option value="all" <%= f.tx_status==='all'?'selected':'' %>>All</option>
-            <option value="captured" <%= f.tx_status==='captured'?'selected':'' %>>Captured</option>
-            <option value="created" <%= f.tx_status==='created'?'selected':'' %>>Created</option>
-            <option value="failed" <%= f.tx_status==='failed'?'selected':'' %>>Failed</option>
-            <option value="refunded" <%= f.tx_status==='refunded'?'selected':'' %>>Refunded</option>
-          </select>
-        </div>
-
-        <input type="hidden" name="preset" value="">
-
-        <div class="field field--actions">
-          <button class="btn btn--primary" type="submit">Apply</button>
-          <a class="btn btn--ghost" href="/admin/dashboard">Reset</a>
-        </div>
-      </form>
-    </div>
+  <section class="statGrid" aria-label="Key metrics">
+    <a class="statCard statCard--link" href="/admin/transactions<%= qsBase({ tx_status: f.tx_status || 'captured' }) %>">
+      <div class="statCard__icon" aria-hidden="true">₹</div>
+      <div class="statCard__label">Captured revenue</div>
+      <div class="statCard__value"><%= inr(st.salesAmount) %></div>
+      <div class="statCard__meta">
+        <span class="<%= st.deltas?.sales?.cssClass %>"><%= st.deltas?.sales?.label %></span>
+        <% if (st.deltas?.sales?.label === '—' && !st.salesAmount) { %>
+          <span class="delta--flat"> · No previous-period activity</span>
+        <% } %>
+      </div>
+    </a>
+    <a class="statCard statCard--link" href="/admin/subscriptions<%= qsBase() %>">
+      <div class="statCard__icon statCard__icon--info" aria-hidden="true">◎</div>
+      <div class="statCard__label">New subscriptions</div>
+      <div class="statCard__value"><%= st.subsCount || 0 %></div>
+      <div class="statCard__meta"><span class="<%= st.deltas?.subs?.cssClass %>"><%= st.deltas?.subs?.label %></span></div>
+    </a>
+    <a class="statCard statCard--link" href="/admin/users<%= qsBase() %>">
+      <div class="statCard__icon statCard__icon--info" aria-hidden="true">◌</div>
+      <div class="statCard__label">New members</div>
+      <div class="statCard__value"><%= st.totalUsers || 0 %></div>
+      <div class="statCard__meta"><span class="<%= st.deltas?.users?.cssClass %>"><%= st.deltas?.users?.label %></span></div>
+    </a>
+    <a class="statCard statCard--link" href="/admin/transactions<%= qsBase({ tx_status: 'failed', preset: '30d' }) %>">
+      <div class="statCard__icon statCard__icon--danger" aria-hidden="true">!</div>
+      <div class="statCard__label">Failed payments</div>
+      <div class="statCard__value"><%= st.failedTxCount || 0 %></div>
+      <div class="statCard__meta"><span class="<%= st.deltas?.failed?.cssClass %>"><%= st.deltas?.failed?.label %></span></div>
+    </a>
   </section>
 
-  <!-- KPI CARDS -->
-  <section class="kpis">
-    <div class="kpi">
-      <div class="kpi__label">New Users</div>
-      <div class="kpi__value"><%= stats.totalUsers %></div>
-      <div class="kpi__foot">
-        <span class="delta <%= stats.deltas.usersPct >= 0 ? 'delta--up' : 'delta--down' %>">
-          <%= stats.deltas.usersPct >= 0 ? '+' : '' %><%= stats.deltas.usersPct %>% vs prev
-        </span>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div class="kpi__label">Subscriptions</div>
-      <div class="kpi__value"><%= stats.subsCount %></div>
-      <div class="kpi__foot">
-        <span class="delta <%= stats.deltas.subsPct >= 0 ? 'delta--up' : 'delta--down' %>">
-          <%= stats.deltas.subsPct >= 0 ? '+' : '' %><%= stats.deltas.subsPct %>% vs prev
-        </span>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div class="kpi__label">Sales</div>
-      <div class="kpi__value">₹<%= Number(stats.salesAmount || 0).toLocaleString() %></div>
-      <div class="kpi__foot">
-        <span class="delta <%= stats.deltas.salesPct >= 0 ? 'delta--up' : 'delta--down' %>">
-          <%= stats.deltas.salesPct >= 0 ? '+' : '' %><%= stats.deltas.salesPct %>% vs prev
-        </span>
-      </div>
-    </div>
-  </section>
-
-  <!-- CHARTS -->
-  <section class="grid2">
-    <div class="panel">
-      <div class="panel__head">
-        <h2 class="panel__title">Subscriptions Trend</h2>
-      </div>
-      <div class="panel__body">
-        <canvas id="subsChart" height="120"></canvas>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel__head">
-        <h2 class="panel__title">Sales Trend</h2>
-      </div>
-      <div class="panel__body">
-        <canvas id="salesChart" height="120"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- TABLES -->
-  <section class="grid2">
-    <div class="panel">
+  <div class="dashGrid">
+    <section class="panel dashGrid__span-8" aria-labelledby="revenueChartTitle">
       <div class="panel__head panel__head--split">
-        <div>
-          <h2 class="panel__title">Top Tracks</h2>
-          <p class="panel__desc">Tracks ranked by subscription count in selected range.</p>
+        <h2 id="revenueChartTitle" class="panel__title">Revenue analytics</h2>
+        <div class="panel__actions chartCard__menu">
+          <form method="get" action="/admin/dashboard" class="chartCard__granularity" id="revenueGranularityForm">
+            <% ['preset','from','to','track','sub_status','tx_status'].forEach((key) => {
+              if (f.preset !== 'custom' && (key === 'from' || key === 'to')) return;
+              if (f[key]) { %><input type="hidden" name="<%= key %>" value="<%= f[key] %>"><% }
+            }) %>
+            <input type="hidden" name="granularity_set" value="1">
+            <select class="select select--compact" name="granularity" aria-label="Revenue chart grouping" onchange="this.form.submit()">
+              <option value="daily" <%= meta.granularity==='daily'?'selected':'' %>>Daily</option>
+              <option value="weekly" <%= meta.granularity==='weekly'?'selected':'' %>>Weekly</option>
+              <option value="monthly" <%= meta.granularity==='monthly'?'selected':'' %>>Monthly</option>
+            </select>
+          </form>
         </div>
       </div>
-      <div class="panel__body panel__body--tight">
-        <div class="tableWrap">
-          <table class="table">
-            <thead>
-              <tr><th>Track</th><th style="width:160px;text-align:right;">Subscriptions</th></tr>
-            </thead>
-            <tbody>
-              <% if (!topTracks || !topTracks.length) { %>
-                <tr><td colspan="2" class="empty">No data for current filters.</td></tr>
-              <% } %>
-              <% (topTracks||[]).forEach(row => { %>
-                <tr>
-                  <td><span class="mono"><%= row.track_id || '(empty)' %></span></td>
-                  <td style="text-align:right;"><%= row.cnt %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
+      <div class="panel__body panel__body--chart" id="revenueChartWrap">
+        <canvas id="revenueChart" role="img" aria-label="Revenue trend chart"></canvas>
+        <div class="chartEmpty dashEmpty" id="revenueChartEmpty" hidden role="status">
+          <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">₹</span>
+          <p class="dashEmpty__label">No captured payments in this period.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="panel">
-      <div class="panel__head panel__head--split">
-        <div>
-          <h2 class="panel__title">Recent Transactions</h2>
-          <p class="panel__desc">Recent activity for the current filtered range.</p>
+    <section class="panel dashGrid__span-4" aria-labelledby="subsChartTitle">
+      <div class="panel__head">
+        <h2 id="subsChartTitle" class="panel__title">Subscription growth</h2>
+      </div>
+      <div class="panel__body panel__body--chart" id="subsChartWrap">
+        <canvas id="subsChart" role="img" aria-label="Subscription growth chart"></canvas>
+        <div class="chartEmpty dashEmpty" id="subsChartEmpty" hidden role="status">
+          <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">▣</span>
+          <p class="dashEmpty__label">No new subscriptions in this period.</p>
         </div>
       </div>
-      <div class="panel__body panel__body--tight">
-        <div class="tableWrap">
-          <table class="table">
+    </section>
+
+    <section class="panel dashGrid__span-8" aria-labelledby="recentTxTitle">
+      <div class="panel__head panel__head--split">
+        <h2 id="recentTxTitle" class="panel__title">Recent transactions</h2>
+        <a class="btn btn--ghost btn--mini" href="/admin/transactions<%= qsBase() %>">View all</a>
+      </div>
+      <div class="panel__body panel__body--tight<%= (!(recentTxns||[]).length) ? ' panel__body--empty' : '' %>">
+        <% if (!(recentTxns||[]).length) { %>
+          <div class="dashEmpty" role="status">
+            <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+            <p class="dashEmpty__label">No transactions in this period.</p>
+          </div>
+        <% } else { %>
+          <table class="table table--dashboard">
             <thead>
               <tr>
-                <th>Time</th>
                 <th>Order</th>
-                <th>Email</th>
-                <th style="width:140px;text-align:right;">Amount</th>
+                <th>Customer</th>
+                <th class="col-amount">Amount</th>
                 <th>Status</th>
-                <th>Method</th>
+                <th class="col-date">Date</th>
               </tr>
             </thead>
             <tbody>
-              <% if (!recentTxns || !recentTxns.length) { %>
-                <tr><td colspan="6" class="empty">No transactions found for current filters.</td></tr>
-              <% } %>
-              <% (recentTxns||[]).forEach(t => { %>
+              <% (recentTxns||[]).forEach(t => {
+                const badge = tx.txStatusBadgeClass ? tx.txStatusBadgeClass(t.status) : 'info';
+                const orderShort = tx.shortOrderId ? tx.shortOrderId(t.order_id) : (t.order_id || '—');
+              %>
                 <tr>
-                  <td class="mono"><%= new Date(t.created_at).toLocaleString() %></td>
-                  <td class="mono"><%= t.order_id || '-' %></td>
-                  <td><%= t.email || '-' %></td>
-                  <td style="text-align:right;">₹<%= Number(t.amount || 0).toLocaleString() %></td>
-                  <td><span class="tag"><%= t.status %></span></td>
-                  <td><%= t.method || '-' %></td>
+                  <td class="col-order">
+                    <a class="mono" href="/admin/transactions/<%= t.id %>" title="<%= t.order_id || '' %>"><%= orderShort %></a>
+                  </td>
+                  <td class="col-email" title="<%= t.email || '' %>"><%= t.email || '—' %></td>
+                  <td class="mono col-amount"><%= inr(t.amount) %></td>
+                  <td><span class="statusBadge statusBadge--<%= badge %>"><%= tx.formatTxStatus ? tx.formatTxStatus(t.status) : t.status %></span></td>
+                  <td class="mono col-date"><%= tx.formatTxDateTime ? tx.formatTxDateTime(t.created_at) : t.created_at %></td>
                 </tr>
               <% }) %>
             </tbody>
           </table>
-        </div>
+        <% } %>
       </div>
-    </div>
-  </section>
+    </section>
 
+    <section class="panel dashGrid__span-4" aria-labelledby="actionTitle">
+      <div class="panel__head">
+        <h2 id="actionTitle" class="panel__title">Action required</h2>
+      </div>
+      <div class="panel__body">
+        <% const actions = actionQueue || [];
+           const hasActions = actions.some((a) => a.count > 0);
+        %>
+        <% if (!hasActions) { %>
+          <div class="emptyState" style="padding:24px 12px;">
+            <p class="emptyState__title">You’re all caught up.</p>
+            <p>No pending operational items for this view.</p>
+          </div>
+        <% } else { %>
+          <div class="actionList">
+            <% actions.forEach((a) => { %>
+              <a class="actionList__row" href="<%= a.href %>">
+                <span class="actionList__left">
+                  <span aria-hidden="true"><%= a.icon || '•' %></span>
+                  <span><%= a.label %></span>
+                </span>
+                <span class="actionList__count"><%= a.count %></span>
+                <span class="actionList__arrow" aria-hidden="true">→</span>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </div>
 </div>
 
-<script>
-  // Data from backend
-  const subsSeries = <%- JSON.stringify(subsSeries || []) %>;
-  const salesSeries = <%- JSON.stringify(salesSeries || []) %>;
-
-  const labels = subsSeries.map(d => d.x);
-  const subsValues = subsSeries.map(d => Number(d.y || 0));
-  const salesValues = salesSeries.map(d => Number(d.y || 0));
-
-  // Chart.js must be loaded in your layout (recommended)
-  const s1 = document.getElementById('subsChart');
-  new Chart(s1, {
-    type: 'line',
-    data: { labels, datasets: [{ label: 'Subscriptions', data: subsValues, tension: 0.25 }] },
-    options: { responsive: true, plugins: { legend: { display: true } } }
-  });
-
-  const s2 = document.getElementById('salesChart');
-  new Chart(s2, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Sales', data: salesValues }] },
-    options: { responsive: true, plugins: { legend: { display: true } } }
-  });
+<script id="dashboardChartPayload" type="application/json">
+<%- JSON.stringify({
+  salesSeries: salesSeries || [],
+  subsSeries: subsSeries || [],
+  granularity: meta.granularity || 'daily',
+  stats: { salesAmount: st.salesAmount, subsCount: st.subsCount },
+  chartMeta: meta,
+  filters: f
+}) %>
 </script>
-
-<style>
-  :root{
-    --bg:#070707;
-    --card:#0B0B0B;
-    --card2:#101010;
-    --text:#F5F5F5;
-    --muted:rgba(245,245,245,.72);
-    --muted2:rgba(245,245,245,.55);
-    --gold:#C9A03B;
-    --goldBorder:rgba(201,160,59,.22);
-    --softBorder:rgba(255,255,255,.08);
-    --shadow:0 18px 60px rgba(0,0,0,.55);
-    --up: #22C55E;
-    --down:#EF4444;
-  }
-
-  *{box-sizing:border-box}
-  .db{display:flex;flex-direction:column;gap:14px;color:var(--text)}
-  .db__head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
-  .db__title{margin:0;font-size:22px}
-  .db__sub{margin-top:6px;font-size:13px;color:var(--muted)}
-  .db__quick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-
-  .chipBtn{
-    text-decoration:none;
-    font-size:12px;
-    padding:8px 10px;
-    border-radius:999px;
-    border:1px solid rgba(201,160,59,.22);
-    background:rgba(201,160,59,.08);
-    color:rgba(245,245,245,.9);
-  }
-  .chipBtn--active{background:rgba(201,160,59,.18);border-color:rgba(201,160,59,.45)}
-
-  .panel{
-    background:linear-gradient(180deg,var(--card),var(--card2));
-    border:1px solid var(--goldBorder);
-    border-radius:16px;
-    box-shadow:var(--shadow);
-    overflow:hidden;
-    min-width:0;
-  }
-  .panel__head{
-    padding:14px 16px 12px;
-    border-bottom:1px solid var(--softBorder);
-  }
-  .panel__head--split{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
-  .panel__title{margin:0;font-size:16px}
-  .panel__desc{margin-top:8px;font-size:12px;color:var(--muted2);line-height:1.45}
-  .panel__meta{display:flex;gap:8px;flex-wrap:wrap}
-  .panel__body{padding:16px}
-  .panel__body--tight{padding-top:12px}
-
-  .pill{
-    display:inline-flex;align-items:center;
-    font-size:12px;padding:6px 10px;border-radius:999px;
-    border:1px solid rgba(201,160,59,.20);
-    background:rgba(201,160,59,.08);
-    color:rgba(245,245,245,.85);
-  }
-
-  .filters{
-    display:grid;
-    grid-template-columns: 1fr 1fr 1.2fr 1.2fr 1.2fr auto;
-    gap:12px;
-    align-items:end;
-  }
-  .field{display:flex;flex-direction:column;gap:7px}
-  .field--actions{display:flex;gap:10px;justify-content:flex-end;align-items:end}
-  .label{font-size:12px;color:var(--muted2);font-weight:800}
-  .input,.select{
-    width:100%;
-    padding:10px 12px;
-    border-radius:12px;
-    border:1px solid rgba(201,160,59,.18);
-    background:rgba(255,255,255,.03);
-    color:var(--text);
-    outline:none;
-    font-size:13px;
-  }
-  .input:focus,.select:focus{border-color:rgba(201,160,59,.55);box-shadow:0 0 0 3px rgba(201,160,59,.12)}
-
-  .btn{
-    display:inline-flex;align-items:center;justify-content:center;
-    padding:10px 14px;border-radius:12px;min-height:40px;
-    border:1px solid var(--softBorder);
-    background:transparent;color:var(--text);
-    font-weight:900;font-size:13px;
-    cursor:pointer;white-space:nowrap;
-  }
-  .btn--primary{background:var(--gold);color:#0A0A0A;border-color:rgba(201,160,59,.55)}
-  .btn--ghost{border-color:rgba(201,160,59,.22)}
-
-  .kpis{
-    display:grid;
-    grid-template-columns: repeat(3, minmax(0,1fr));
-    gap:12px;
-  }
-  .kpi{
-    border:1px solid rgba(201,160,59,.20);
-    background:rgba(0,0,0,.18);
-    border-radius:16px;
-    padding:14px;
-    box-shadow:var(--shadow);
-  }
-  .kpi__label{color:var(--muted2);font-size:12px;font-weight:900}
-  .kpi__value{margin-top:8px;font-size:24px;font-weight:900}
-  .kpi__foot{margin-top:10px}
-  .delta{font-size:12px;font-weight:900}
-  .delta--up{color:rgba(34,197,94,.9)}
-  .delta--down{color:rgba(239,68,68,.9)}
-
-  .grid2{
-    display:grid;
-    grid-template-columns: repeat(2, minmax(0,1fr));
-    gap:12px;
-  }
-
-  .tableWrap{overflow:auto;border-radius:14px;border:1px solid rgba(201,160,59,.14)}
-  .table{width:100%;border-collapse:collapse;min-width:720px;background:rgba(0,0,0,.14)}
-  .table th,.table td{padding:12px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
-  .table th{font-size:12px;color:rgba(245,245,245,.72);text-align:left;background:rgba(0,0,0,.12)}
-  .empty{text-align:center;color:rgba(245,245,245,.7);padding:26px}
-
-  .tag{
-    display:inline-flex;align-items:center;
-    font-size:12px;padding:6px 10px;border-radius:999px;
-    border:1px solid rgba(201,160,59,.18);
-    background:rgba(201,160,59,.08);
-  }
-
-  .mono{
-    font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-    word-break:break-word;
-  }
-
-  @media (max-width: 1100px){
-    .filters{grid-template-columns:1fr 1fr; }
-    .field--actions{grid-column:1 / -1; justify-content:flex-start}
-    .kpis{grid-template-columns:1fr}
-    .grid2{grid-template-columns:1fr}
-  }
-</style>
+<script src="/js/admin-charts.js?v=1" defer></script>
+<script src="/js/admin-dashboard.js?v=3" defer></script>

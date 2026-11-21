@@ -1,0 +1,46 @@
+<%
+  const p = post || {};
+  const isEdit = mode === 'edit' && p.id;
+  const action = isEdit ? `/admin/blog/${p.id}` : '/admin/blog';
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const linkIdeas = typeof linkSuggestions !== 'undefined' ? linkSuggestions : null;
+  const slugLocked = p.status === 'published' ? '1' : '0';
+  const autosaveFlag = '1';
+%>
+<div
+  class="page page--blogEditor"
+  data-blog
+  data-blog-editor
+  data-post-id="<%= isEdit ? p.id : '' %>"
+  data-post-status="<%= p.status || 'draft' %>"
+  data-slug-locked="<%= slugLocked %>"
+  data-autosave="<%= autosaveFlag %>"
+  data-csrf="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>"
+>
+  <%- include('../partials/admin/blog-editor-header', { post, mode, blogAdmin: ba }) %>
+
+  <form id="blogPostForm" class="blogEditor" method="post" action="<%= action %>" enctype="multipart/form-data" autocomplete="off">
+    <%- include('../partials/csrf-field') %>
+    <div class="blogEditor__layout">
+      <%- include('../partials/admin/blog-editor-main', { post }) %>
+      <%- include('../partials/admin/blog-editor-settings', { post, mode, categories, postTags, imageMaxMb, recommendedAspect, linkSuggestions: linkIdeas, blogAdmin: ba }) %>
+    </div>
+  </form>
+
+  <%- include('../partials/admin/blog-publish-modal', { post, mode }) %>
+
+  <% if (isEdit) { %>
+    <% if (p.featured_image) { %>
+      <form id="blogThumbRemoveForm" method="post" action="/admin/blog/<%= p.id %>/featured-image/remove" class="blogEditor__hiddenForm" hidden onsubmit="return confirm('Remove thumbnail?');">
+        <%- include('../partials/csrf-field') %>
+      </form>
+    <% } %>
+    <% if (ba.trash && session && session.admin && ['super','manager'].includes(session.admin.role)) { %>
+      <form id="blogTrashForm" method="post" action="/admin/blog/<%= p.id %>/delete" class="blogEditor__hiddenForm" hidden onsubmit="return confirm('Move to trash?');">
+        <%- include('../partials/csrf-field') %>
+      </form>
+    <% } %>
+  <% } %>
+</div>
+<link rel="stylesheet" href="/css/admin-blog-editor.css?v=2">
+<script src="/js/admin-blog-editor.bundle.js?v=3" defer></script>

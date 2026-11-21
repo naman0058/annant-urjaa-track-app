@@ -1,0 +1,45 @@
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">Blog tags</h2>
+      <div class="dash__subtitle">Assign on the post editor (comma-separated) or via AI import.</div>
+    </div>
+    <div class="dash__actions">
+      <a class="btn btn--ghost" href="/admin/blog/categories">Categories</a>
+      <a class="btn btn--ghost" href="/admin/blog">← Posts</a>
+    </div>
+  </div>
+
+  <form class="panel" method="post" action="/admin/blog/tags" autocomplete="off">
+    <%- include('../partials/csrf-field') %>
+    <div class="panel__head"><h3 class="panel__title">Add tag</h3></div>
+    <div class="panel__body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+      <div class="field"><label class="label">Name *</label><input class="input" name="name" required></div>
+      <button class="btn btn--primary" type="submit">Add</button>
+    </div>
+  </form>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel__body panel__body--tight">
+      <table class="table">
+        <thead><tr><th>Name</th><th>Slug</th><th>Posts</th><th class="tRight">Delete</th></tr></thead>
+        <tbody>
+          <% if (!(tags||[]).length) { %><tr><td colspan="4" class="empty">No tags yet.</td></tr><% } %>
+          <% (tags||[]).forEach(t => { %>
+            <tr>
+              <td><%= t.name %></td>
+              <td class="mono"><%= t.slug %></td>
+              <td><%= t.post_count || 0 %></td>
+              <td class="tRight">
+                <form method="post" action="/admin/blog/tags/<%= t.id %>/delete" onsubmit="return confirm('Delete tag?');" style="display:inline;">
+                  <%- include('../partials/csrf-field') %>
+                  <button class="btn btn--ghost btn--mini" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

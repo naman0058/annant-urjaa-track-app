@@ -1,0 +1,56 @@
+<div class="filterDrawer" id="importPreviewDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-preview-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--wide" role="dialog">
+    <div class="filterDrawer__head">
+      <h2 class="filterDrawer__title" id="importPreviewTitle">Preview</h2>
+      <button type="button" class="btn btn--ghost btn--mini" data-preview-close>Close</button>
+    </div>
+    <div class="filterDrawer__body">
+      <div class="importStudio__previewMeta" id="importPreviewMeta"></div>
+      <div class="importStudio__previewBody" id="importPreviewBody"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="filterDrawer" id="importFileFilters" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-labelledby="importFileFiltersTitle">
+    <div class="filterDrawer__head">
+      <h2 id="importFileFiltersTitle" class="filterDrawer__title">File filters</h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact">
+      <%- include('./import-files-filter-drawer') %>
+    </div>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--primary btn--mini" id="importFileFiltersApply">Apply</button>
+    </div>
+  </aside>
+</div>
+
+<div class="filterDrawer" id="importAiDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-labelledby="importAiDrawerTitle">
+    <div class="filterDrawer__head">
+      <h2 id="importAiDrawerTitle" class="filterDrawer__title">AI settings</h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact">
+      <%- include('./import-ai-config-drawer', { config: cfg, model, openaiConfigured, defaultAuthor, importAutoPublishDefault: typeof importAutoPublishDefault !== 'undefined' ? importAutoPublishDefault : true }) %>
+    </div>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--primary btn--mini" id="importAiDrawerApply">Done</button>
+    </div>
+  </aside>
+</div>
+
+<div class="filterDrawer" id="importSkippedDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog">
+    <div class="filterDrawer__head">
+      <h2 class="filterDrawer__title">Skipped files</h2>
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+    </div>
+    <div class="filterDrawer__body importStudio__skippedList" id="importSkippedList"></div>
+  </aside>
+</div>

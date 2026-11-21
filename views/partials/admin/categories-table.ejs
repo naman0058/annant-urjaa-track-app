@@ -1,0 +1,136 @@
+<%
+  const rows = categories || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0 };
+  const totalPages = Math.max(1, Math.ceil((pg.total || 0) / (pg.limit || 20)));
+  const hasRows = rows.length > 0;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/categories/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const thumbSrc = (p) => {
+    if (!p) return '';
+    if (String(p).startsWith('http')) return p;
+    return '/' + String(p).replace(/^\/+/, '');
+  };
+%>
+<div class="panel__body catTableBody<%= hasRows ? '' : ' panel__body--empty panel__body--emptyCat' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty dashEmpty--cat" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">✦</span>
+      <% if (datasetEmpty) { %>
+        <h2 class="dashEmpty__title">No categories yet</h2>
+        <p class="dashEmpty__desc">Create catalog categories for tracks. Order controls how they appear in the app.</p>
+        <% if (canWrite) { %>
+          <div class="dashEmpty__actions">
+            <button type="button" class="btn btn--primary btn--mini" data-filter-open="catCreateDrawer">Create category</button>
+          </div>
+        <% } %>
+      <% } else { %>
+        <h2 class="dashEmpty__title">No matching categories</h2>
+        <p class="dashEmpty__desc">
+          <% if (typeof activeFilterCount === 'number' && activeFilterCount > 0) { %>
+            <%= activeFilterCount %> filter<%= activeFilterCount === 1 ? '' : 's' %> applied.
+          <% } else { %>
+            Try a different search or thumbnail filter.
+          <% } %>
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/categories">Clear filters</a>
+          <button type="button" class="btn btn--primary btn--mini" data-filter-open="catFilters">Adjust filters</button>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="catTableWrap">
+      <table class="table table--dashboard table--compact table--catList" id="catTable">
+        <thead>
+          <tr>
+            <th scope="col" class="col-order">#</th>
+            <th scope="col" class="col-thumb"><span class="sr-only">Thumbnail</span></th>
+            <th scope="col">Category</th>
+            <th scope="col">Slug</th>
+            <th scope="col" class="col-numeric">Tracks</th>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((c) => { %>
+            <tr data-cat-row="<%= c.id %>">
+              <td class="mono col-order"><%= c.sort_order != null ? c.sort_order : '—' %></td>
+              <td class="col-thumb">
+                <% const src = thumbSrc(c.thumbnail_path); %>
+                <% if (src) { %>
+                  <img class="catThumb" src="<%= src %>" alt="" width="36" height="36" loading="lazy">
+                <% } else { %>
+                  <span class="catThumb catThumb--empty" aria-hidden="true">—</span>
+                <% } %>
+              </td>
+              <td class="col-name">
+                <a class="catNameLink" href="<%= detailHref(c.id) %>" title="<%= c.name %>"><%= c.name %></a>
+              </td>
+              <td class="mono col-slug"><%= c.slug || '—' %></td>
+              <td class="mono col-numeric"><%= c.track_count != null ? c.track_count : 0 %></td>
+              <td class="mono col-date"><%= fmt(c.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for <%= c.name %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(c.id) %>">View</a></li>
+                      <li><a href="/admin/tracks?category_id=<%= c.id %>">Tracks</a></li>
+                      <% if (canWrite) { %>
+                        <li>
+                          <button type="button" class="rowMenu__btn" data-cat-edit
+                            data-id="<%= c.id %>"
+                            data-name="<%= (c.name || '').replace(/"/g,'&quot;') %>"
+                            data-description="<%= (c.description || '').replace(/"/g,'&quot;') %>"
+                            data-thumb="<%= thumbSrc(c.thumbnail_path).replace(/"/g,'&quot;') %>"
+                          >Edit</button>
+                        </li>
+                        <% if (isSuper) { %>
+                          <li>
+                            <form method="post" action="/admin/categories/<%= c.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Delete this category? Only works if no tracks are linked.');">
+                              <%- include('../csrf-field') %>
+                              <input type="hidden" name="return" value="<%= listReturnQs || '' %>">
+                              <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Categories pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/categories<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= totalPages %></span>
+          <% if (pg.page < totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/categories<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

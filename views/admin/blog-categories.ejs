@@ -1,0 +1,54 @@
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">Blog categories</h2>
+      <div class="dash__subtitle">Separate from program catalog categories. Used on /blog/category/… URLs.</div>
+    </div>
+    <div class="dash__actions">
+      <a class="btn btn--ghost" href="/admin/blog">← Posts</a>
+      <a class="btn btn--ghost" href="/admin/blog/tags">Tags</a>
+    </div>
+  </div>
+
+  <form class="panel" method="post" action="/admin/blog/categories" autocomplete="off">
+    <%- include('../partials/csrf-field') %>
+    <div class="panel__head"><h3 class="panel__title">Add category</h3></div>
+    <div class="panel__body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+      <div class="field"><label class="label">Name *</label><input class="input" name="name" required></div>
+      <div class="field"><label class="label">Sort order</label><input class="input" type="number" name="sort_order" value="0"></div>
+      <div class="field" style="grid-column:1/-1"><label class="label">Description</label><input class="input" name="description"></div>
+      <div class="field"><button class="btn btn--primary" type="submit">Add</button></div>
+    </div>
+  </form>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel__head"><h3 class="panel__title">Existing</h3></div>
+    <div class="panel__body panel__body--tight">
+      <table class="table">
+        <thead><tr><th>Name</th><th>Slug</th><th>Posts</th><th class="tRight">Actions</th></tr></thead>
+        <tbody>
+          <% if (!(categories||[]).length) { %><tr><td colspan="4" class="empty">No blog categories yet.</td></tr><% } %>
+          <% (categories||[]).forEach(c => { %>
+            <tr>
+              <td colspan="4" style="padding:12px;">
+                <form method="post" action="/admin/blog/categories/<%= c.id %>" style="display:grid;grid-template-columns:1fr 1fr 80px 1fr auto auto;gap:8px;align-items:end;">
+                  <%- include('../partials/csrf-field') %>
+                  <div class="field"><label class="label">Name</label><input class="input" name="name" value="<%= c.name %>" required></div>
+                  <div class="field"><label class="label">Slug</label><input class="input mono" name="slug" value="<%= c.slug %>"></div>
+                  <div class="field"><label class="label">Order</label><input class="input" type="number" name="sort_order" value="<%= c.sort_order %>"></div>
+                  <div class="field"><label class="label">Description</label><input class="input" name="description" value="<%= c.description || '' %>"></div>
+                  <button class="btn btn--gold btn--mini" type="submit">Save</button>
+                </form>
+                <form method="post" action="/admin/blog/categories/<%= c.id %>/delete" style="margin-top:8px;" onsubmit="return confirm('Delete category? Posts will be unlinked.');">
+                  <%- include('../partials/csrf-field') %>
+                  <span class="cellSub mono"><%= c.post_count || 0 %> posts</span>
+                  <button class="btn btn--ghost btn--mini" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

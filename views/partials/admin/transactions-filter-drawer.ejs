@@ -1,0 +1,115 @@
+<%
+  const f = filters || {};
+  const pg = pagination || { limit: 20 };
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Quick search</span>
+      <input class="input input--compact" type="search" name="q" id="txSearchQ" value="<%= f.q || '' %>" placeholder="Order, payment, receipt, email…" spellcheck="false" autocomplete="off">
+    </label>
+    <div class="txSearchPills" role="group" aria-label="Filter shortcuts">
+      <button type="button" class="btn btn--ghost btn--mini txSearchPill" data-tx-filter="status" data-tx-value="captured">Captured</button>
+      <button type="button" class="btn btn--ghost btn--mini txSearchPill" data-tx-filter="method" data-tx-value="upi">UPI</button>
+    </div>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Payment</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status">
+          <option value="">Any</option>
+          <option value="created" <%= f.status==='created'?'selected':'' %>>Created</option>
+          <option value="authorized" <%= f.status==='authorized'?'selected':'' %>>Authorized</option>
+          <option value="in_transit" <%= f.status==='in_transit'?'selected':'' %>>In transit</option>
+          <option value="captured" <%= f.status==='captured'?'selected':'' %>>Captured</option>
+          <option value="failed" <%= f.status==='failed'?'selected':'' %>>Failed</option>
+          <option value="refunded" <%= f.status==='refunded'?'selected':'' %>>Refunded</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Method</span>
+        <select class="select select--compact" name="method">
+          <option value="">Any</option>
+          <option value="card" <%= f.method==='card'?'selected':'' %>>Card</option>
+          <option value="upi" <%= f.method==='upi'?'selected':'' %>>UPI</option>
+          <option value="netbanking" <%= f.method==='netbanking'?'selected':'' %>>Netbanking</option>
+          <option value="wallet" <%= f.method==='wallet'?'selected':'' %>>Wallet</option>
+        </select>
+      </label>
+    </div>
+    <div class="fieldGrid fieldGrid--date">
+      <label class="field">
+        <span class="field__label">From</span>
+        <input class="input input--compact" type="date" name="from" value="<%= f.from || '' %>">
+      </label>
+      <label class="field">
+        <span class="field__label">To</span>
+        <input class="input input--compact" type="date" name="to" value="<%= f.to || '' %>">
+      </label>
+    </div>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Sort &amp; page</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Sort by</span>
+        <select class="select select--compact" name="sort">
+          <option value="created_at" <%= (!f.sort || f.sort==='created_at')?'selected':'' %>>Created</option>
+          <option value="amount" <%= f.sort==='amount'?'selected':'' %>>Amount</option>
+          <option value="status" <%= f.sort==='status'?'selected':'' %>>Status</option>
+          <option value="method" <%= f.sort==='method'?'selected':'' %>>Method</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Direction</span>
+        <select class="select select--compact" name="dir">
+          <option value="desc" <%= (!f.dir || f.dir==='desc')?'selected':'' %>>Newest first</option>
+          <option value="asc" <%= f.dir==='asc'?'selected':'' %>>Oldest first</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [10,20,50,100,200].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit || pg.limit || 20)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+  <details class="filterDrawer__advanced">
+    <summary>Amount &amp; IDs</summary>
+    <div class="filterDrawer__advancedBody">
+      <div class="filterDrawer__grid">
+        <label class="field">
+          <span class="field__label">Min (₹)</span>
+          <input class="input input--compact" type="number" step="0.01" min="0" name="min_amount" value="<%= f.min_amount || '' %>" placeholder="0">
+        </label>
+        <label class="field">
+          <span class="field__label">Max (₹)</span>
+          <input class="input input--compact" type="number" step="0.01" min="0" name="max_amount" value="<%= f.max_amount || '' %>">
+        </label>
+        <label class="field">
+          <span class="field__label">Payment ID</span>
+          <select class="select select--compact" name="has_payment_id">
+            <option value="">Any</option>
+            <option value="1" <%= f.has_payment_id==='1'?'selected':'' %>>Present</option>
+            <option value="0" <%= f.has_payment_id==='0'?'selected':'' %>>Missing</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Receipt</span>
+          <select class="select select--compact" name="has_receipt">
+            <option value="">Any</option>
+            <option value="1" <%= f.has_receipt==='1'?'selected':'' %>>Present</option>
+            <option value="0" <%= f.has_receipt==='0'?'selected':'' %>>Missing</option>
+          </select>
+        </label>
+      </div>
+      <% if (f.currency) { %><input type="hidden" name="currency" value="<%= f.currency %>"><% } %>
+    </div>
+  </details>
+</div>

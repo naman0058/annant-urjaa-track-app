@@ -1,0 +1,19 @@
+<%
+  const toolbarSearch = typeof toolbarShowSearch !== 'undefined' ? toolbarShowSearch : true;
+  const toolbarFilterCount = typeof toolbarFilterCount !== 'undefined' ? toolbarFilterCount : 0;
+%>
+<div class="panel__head panel__head--split" style="margin-bottom:0;">
+  <div>
+    <% if (typeof toolbarTitle !== 'undefined') { %><h3 class="panel__title"><%= toolbarTitle %></h3><% } %>
+    <% if (typeof toolbarDesc !== 'undefined') { %><p class="panel__desc"><%= toolbarDesc %></p><% } %>
+  </div>
+  <div class="pageHeader__actions">
+    <% if (toolbarFilterCount > 0) { %>
+      <span class="filterChip"><%= toolbarFilterCount %> active</span>
+    <% } %>
+    <% if (typeof toolbarFilterBtn !== 'undefined' && toolbarFilterBtn) { %>
+      <button type="button" class="btn btn--ghost" data-filter-open="<%= toolbarFilterBtn %>">Filters</button>
+    <% } %>
+    <%- typeof toolbarExtra !== 'undefined' ? toolbarExtra : '' %>
+  </div>
+</div>

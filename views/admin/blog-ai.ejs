@@ -1,0 +1,126 @@
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">AI blog tools</h2>
+      <div class="dash__subtitle">OpenAI Responses API + strict JSON schema. Output saved as <b>review</b> only — never auto-published. Model: <code><%= model %></code></div>
+    </div>
+    <a class="btn btn--ghost" href="/admin/blog">← Back</a>
+  </div>
+
+  <% if (!openaiConfigured) { %>
+    <div class="panel">
+      <div class="panel__body">
+        <div class="alert">
+          <div class="alert__title">OpenAI not configured</div>
+          <div class="alert__text">Set <code>OPENAI_API_KEY</code> on the server (see <code>.env.example</code>). Keys must never be exposed to the browser.</div>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Bulk folder import (legacy)</h3></div>
+    <div class="panel__body">
+      <p class="tinyHint"><a href="/admin/blogs/import">Use the full folder import + job monitor</a> (scan, cost estimate, pause/resume, durable queue).</p>
+      <% if (!importDir) { %>
+        <p class="tinyHint">Set <code>BLOG_IMPORT_DIR</code> on the server to enable directory scanning.</p>
+      <% } else { %>
+        <form method="post" action="/admin/blog/ai/folder">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="field">
+            <label class="label">Subfolder (under import root)</label>
+            <input class="input mono" name="subdir" value="." placeholder=".">
+            <p class="tinyHint">Root: <code><%= importDir %></code></p>
+          </div>
+          <div class="field">
+            <label class="label">Max files</label>
+            <input class="input" type="number" name="limit" value="5" min="1" max="25">
+          </div>
+          <button class="btn btn--gold" type="submit" style="margin-top:10px;">Process folder</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Queue jobs</h3></div>
+    <div class="panel__body">
+      <form method="post" action="/admin/blog/ai/queue">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label class="label">Job type</label>
+          <select class="select" name="job_type">
+            <option value="rewrite">Full rewrite (content + metadata)</option>
+            <option value="content">Content only</option>
+            <option value="metadata">Metadata / SEO only</option>
+            <option value="seo">Legacy SEO batch</option>
+          </select>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label class="label">Post IDs (comma-separated)</label>
+          <input class="input mono" name="post_ids" placeholder="1,2,3">
+          <p class="tinyHint">Pick from the list below. Queued: <strong><%= queued || 0 %></strong></p>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn--primary" type="submit">Queue jobs</button>
+        </div>
+      </form>
+
+      <form method="post" action="/admin/blog/ai/run" style="margin-top:16px;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label class="label">Process batch size (max 10)</label>
+          <input class="input" type="number" name="limit" value="5" min="1" max="10">
+        </div>
+        <button class="btn btn--gold" type="submit" style="margin-top:10px;">Process queued jobs now</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Available posts</h3></div>
+    <div class="panel__body panel__body--tight">
+      <div class="tableWrap">
+        <table class="table">
+          <thead><tr><th>ID</th><th>Title</th><th>Status</th></tr></thead>
+          <tbody>
+            <% (posts||[]).forEach(p => { %>
+              <tr>
+                <td class="mono"><%= p.id %></td>
+                <td><%= p.title %></td>
+                <td><%= p.status %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__head"><h3 class="panel__title">Recent AI jobs</h3></div>
+    <div class="panel__body panel__body--tight">
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr><th>ID</th><th>Type</th><th>Post</th><th>Status</th><th>Error</th></tr>
+          </thead>
+          <tbody>
+            <% if (!(jobs||[]).length) { %>
+              <tr><td colspan="5" class="empty">No jobs yet.</td></tr>
+            <% } %>
+            <% (jobs||[]).forEach(j => { %>
+              <tr>
+                <td class="mono"><%= j.id %></td>
+                <td class="mono"><%= j.job_type %></td>
+                <td><%= j.post_title || j.post_id %></td>
+                <td><%= j.status %></td>
+                <td class="mono"><%= j.error_message || '' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

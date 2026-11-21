@@ -1,0 +1,280 @@
+/* Admin form controls, buttons, panels, tables — shared across modules */
+
+.admin-app .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--admin-control-h, 42px);
+  padding: 0 16px;
+  border-radius: var(--admin-radius-sm, 10px);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  color: var(--it-text);
+  background: transparent;
+}
+
+.admin-app .btn--primary {
+  color: #0c0e12;
+  background: var(--it-gold);
+  border-color: var(--it-gold);
+}
+
+.admin-app .btn--primary:hover {
+  background: var(--it-gold-hover);
+  border-color: var(--it-gold-hover);
+}
+
+.admin-app .btn--gold {
+  color: var(--it-gold-hover);
+  border-color: rgba(215, 175, 69, 0.45);
+  background: var(--it-gold-tint);
+}
+
+.admin-app .btn--gold:hover {
+  background: rgba(215, 175, 69, 0.18);
+}
+
+.admin-app .btn--ghost {
+  border-color: var(--it-border);
+  background: var(--it-surface);
+  color: var(--it-text-secondary);
+}
+
+.admin-app .btn--ghost:hover {
+  background: var(--it-surface-elevated);
+  color: var(--it-text);
+}
+
+.admin-app .btn--danger {
+  color: var(--it-danger);
+  border-color: rgba(236, 106, 106, 0.35);
+  background: rgba(236, 106, 106, 0.08);
+}
+
+.admin-app .btn--mini {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.admin-app .btn--icon {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+}
+
+.admin-app .btn:focus-visible {
+  outline: 2px solid var(--it-gold);
+  outline-offset: 2px;
+}
+
+.admin-app .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-app .field {
+  margin-bottom: 16px;
+  min-width: 0;
+}
+
+.admin-app .label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--it-text-secondary);
+}
+
+.admin-app .field__hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--it-text-muted);
+}
+
+.admin-app .input,
+.admin-app .select,
+.admin-app textarea.input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--admin-control-h, 42px);
+  padding: 0 14px;
+  border-radius: var(--admin-radius-sm, 10px);
+  border: 1px solid var(--it-border);
+  background: var(--it-input-bg, #1b2028);
+  color: var(--it-text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-app .select {
+  padding-right: 36px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23A6ADB8' d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+.admin-app .input::placeholder {
+  color: #9aa3af;
+  opacity: 1;
+}
+
+.admin-app .input:hover,
+.admin-app .select:hover {
+  border-color: #3a424d;
+}
+
+.admin-app .input:focus,
+.admin-app .select:focus {
+  outline: none;
+  border-color: var(--it-gold);
+  box-shadow: 0 0 0 3px var(--it-gold-tint);
+}
+
+.admin-app input[type='date'],
+.admin-app input[type='datetime-local'],
+.admin-app input[type='time'] {
+  color-scheme: dark;
+}
+
+.admin-app input[type='date']::-webkit-calendar-picker-indicator,
+.admin-app input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  filter: invert(0.75);
+  cursor: pointer;
+}
+
+.admin-app .input--compact,
+.admin-app .select--compact {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.admin-app .panel {
+  background: var(--it-surface);
+  border: 1px solid var(--it-border);
+  border-radius: var(--admin-radius);
+  overflow: hidden;
+}
+
+.admin-app .panel__head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--it-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-app .panel__head--split .panel__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-app .panel__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--it-text);
+}
+
+.admin-app .panel__desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--it-text-muted);
+}
+
+.admin-app .panel__body {
+  padding: 16px 18px;
+}
+
+.admin-app .panel__body--tight {
+  padding: 0;
+}
+
+.admin-app .panel__body--chart {
+  padding: 12px 14px 16px;
+  height: 300px;
+  position: relative;
+}
+
+.admin-app .panel__body--chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.admin-app .chartEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--it-text-secondary);
+  z-index: 1;
+  user-select: none;
+}
+
+.admin-app .chartEmpty a,
+.admin-app .chartEmpty button {
+  user-select: none;
+  pointer-events: auto;
+}
+
+.admin-app .table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-app .table th,
+.admin-app .table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--it-border);
+  vertical-align: middle;
+}
+
+.admin-app .table th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--it-text-muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-app .table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-app .table a {
+  color: var(--it-gold-hover);
+  font-weight: 600;
+}
+
+.admin-app .mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.admin-app .delta--up { color: var(--it-success); }
+.admin-app .delta--down { color: var(--it-danger); }
+.admin-app .delta--flat { color: var(--it-text-muted); }

@@ -5,6 +5,12 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
+const { requireAuth, requireRole } = require('../middleware/adminAuth')
+const { blockViewerWrites } = require('../middleware/adminWriteGuard')
+const { adminLoginRateLimit } = require('../middleware/adminLoginRateLimit')
+const { csrfLocals, verifyCsrfPost, shouldDeferCsrfToMultipartParser } = require('../middleware/csrf')
+const { blogAdminLocals } = require('../middleware/blogAdminGuards')
+
 const router = express.Router()
 
 // Helper to escape CSV values
@@ -13,54 +19,93 @@ const csvEscape = (v) => {
   return `"${String(v).replace(/"/g, '""')}"`;
 };
 
-(async () => {
-  console.log(await bcrypt.hash('admin123', 10));
-})();
+router.use((req, res, next) => {
+  const p = req.path.replace(/\/$/, '') || '/dashboard';
+  res.locals.adminPath = p === '/login' ? '' : p;
+  res.locals.isViewer = req.session?.admin?.role === 'viewer';
+  res.locals.canWrite = req.session?.admin && ['super', 'manager'].includes(req.session.admin.role);
+  next();
+});
 
+router.use(blogAdminLocals);
 
+router.use(csrfLocals);
 
-const requireAuth = (req, res, next) => {
+router.use((req, res, next) => {
+  if (req.method !== 'POST') return next();
+  const p = (req.path || '').replace(/\/$/, '') || '/';
+  if (p === '/login') return next();
+  if (shouldDeferCsrfToMultipartParser(req)) return next();
+  return verifyCsrfPost(req, res, next);
+});
 
-  if (req.session && req.session.admin) return next()
-  return res.redirect('/admin/login')
-}
-const requireRole = (roles) => (req, res, next) => {
-  console.log('res',req.session.admin.role)
+router.use(blockViewerWrites);
 
-  const role = req.session?.admin?.role || 'viewer'
-  if (roles.includes(role)) return next()
-  req.flash('error', 'You do not have permission for that action')
-  return res.redirect('back')
-}
+router.use((req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  next();
+});
+
+router.use(require('./admin/dashboard'));
 
 router.get('/login', (req, res) => {
   if (req.session && req.session.admin) return res.redirect('/admin/dashboard')
   res.render('login', { title: 'Admin Login',layout: false  })
 })
 
-router.post('/login',
-  body('email').isEmail().withMessage('Valid email required'),
-  body('password').isLength({ min: 6 }).withMessage('Password required'),
+const AUTH_FAIL_MSG = 'Unable to sign in. Check your credentials and try again.'
+
+router.post(
+  '/login',
+  adminLoginRateLimit,
+  body('email').isEmail().withMessage('Enter a valid work email.'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters.'),
   async (req, res) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      req.flash('error', errors.array().map(e => e.msg))
+      req.flash('error', errors.array().map((e) => e.msg))
       return res.redirect('/admin/login')
     }
-    const { email, password } = req.body
+    const email = String(req.body.email || '').trim().toLowerCase()
+    const password = req.body.password
     try {
       const [rows] = await req.db.query('SELECT * FROM admins WHERE email = :email LIMIT 1', { email })
-      if (!rows.length) { req.flash('error', 'Invalid credentials'); return res.redirect('/admin/login') }
       const admin = rows[0]
-      console.log('password',password)
-      console.log('admin.password_hash',admin.password_hash)
-
-      const ok = await bcrypt.compare(password, admin.password_hash)
-      if (!ok) { req.flash('error', 'Invalid credentials'); return res.redirect('/admin/login') }
-      req.session.admin = { id: admin.id, email: admin.email, name: admin.name, role: admin.role }
-      req.flash('success', 'Logged in successfully')
-      res.redirect('/admin/dashboard')
-    } catch (err) { console.error(err); req.flash('error', 'Login failed'); res.redirect('/admin/login') }
+      const credsOk =
+        admin &&
+        admin.is_active !== 0 &&
+        (await bcrypt.compare(password, admin.password_hash))
+      if (!credsOk) {
+        if (typeof res.locals.recordLoginFailure === 'function') res.locals.recordLoginFailure()
+        req.flash('error', AUTH_FAIL_MSG)
+        return res.redirect('/admin/login')
+      }
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error('session regenerate', regenErr)
+          req.flash('error', 'Sign-in could not be completed. Please try again.')
+          return res.redirect('/admin/login')
+        }
+        req.session.admin = {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: admin.role,
+        }
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error('session save', saveErr)
+            req.flash('error', 'Sign-in could not be completed. Please try again.')
+            return res.redirect('/admin/login')
+          }
+          res.redirect('/admin/dashboard')
+        })
+      })
+    } catch (err) {
+      console.error(err)
+      req.flash('error', 'Sign-in is temporarily unavailable. Please try again shortly.')
+      res.redirect('/admin/login')
+    }
   }
 )
 
@@ -105,278 +150,54 @@ router.get('/logout', (req, res) => { req.session.destroy(() => res.redirect('/a
 // })
 
 
-router.get('/dashboard', requireAuth, async (req, res) => {
-  // ---- Read filters ----
-  const preset = String(req.query.preset || '').trim(); // 7d | 30d | 90d | this_month | last_month | ytd
-  const track = String(req.query.track || '').trim();   // track_id or empty = all
-  const sub_status = String(req.query.sub_status || 'active').trim(); // active|expired|cancelled|all
-  const tx_status = String(req.query.tx_status || 'captured').trim(); // captured|created|failed|refunded|all
-
-  const today = new Date(); // server time
-  const pad = (n) => String(n).padStart(2, '0');
-  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-  let from = String(req.query.from || '').trim(); // YYYY-MM-DD
-  let to = String(req.query.to || '').trim();     // YYYY-MM-DD
-
-  // ---- Apply preset if provided (overrides manual) ----
-  const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
-  const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  const startOfYear = (d) => new Date(d.getFullYear(), 0, 1);
-
-  if (preset) {
-    const t = new Date();
-    if (preset === '7d') {
-      const d = new Date(t); d.setDate(d.getDate() - 6);
-      from = fmt(d); to = fmt(t);
-    } else if (preset === '30d') {
-      const d = new Date(t); d.setDate(d.getDate() - 29);
-      from = fmt(d); to = fmt(t);
-    } else if (preset === '90d') {
-      const d = new Date(t); d.setDate(d.getDate() - 89);
-      from = fmt(d); to = fmt(t);
-    } else if (preset === 'this_month') {
-      from = fmt(startOfMonth(t));
-      to = fmt(t);
-    } else if (preset === 'last_month') {
-      const lm = new Date(t.getFullYear(), t.getMonth() - 1, 15);
-      from = fmt(startOfMonth(lm));
-      to = fmt(endOfMonth(lm));
-    } else if (preset === 'ytd') {
-      from = fmt(startOfYear(t));
-      to = fmt(t);
-    }
-  }
-
-  // Default if nothing provided
-  if (!from || !to) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 29);
-    from = fmt(d);
-    to = fmt(today);
-  }
-
-  // Previous period (same length) for comparisons
-  const fromD = new Date(from + 'T00:00:00');
-  const toD = new Date(to + 'T23:59:59');
-  const days = Math.max(1, Math.round((toD - fromD) / (1000 * 60 * 60 * 24)) + 1);
-
-  const prevTo = new Date(fromD);
-  prevTo.setDate(prevTo.getDate() - 1);
-
-  const prevFrom = new Date(prevTo);
-  prevFrom.setDate(prevFrom.getDate() - (days - 1));
-
-  const prevFromStr = fmt(prevFrom);
-  const prevToStr = fmt(prevTo);
-
-  // ---- Build WHERE conditions ----
-  const subWhere = [];
-  const subParams = {};
-  subWhere.push('s.created_at >= :sub_from AND s.created_at <= :sub_to');
-  subParams.sub_from = `${from} 00:00:00`;
-  subParams.sub_to = `${to} 23:59:59`;
-
-  if (track) {
-    subWhere.push('s.track_id = :track');
-    subParams.track = track;
-  }
-  if (sub_status && sub_status !== 'all') {
-    subWhere.push('s.status = :sub_status');
-    subParams.sub_status = sub_status;
-  }
-
-  const subWhereSql = subWhere.length ? `WHERE ${subWhere.join(' AND ')}` : '';
-
-  const txWhere = [];
-  const txParams = {};
-  txWhere.push('t.created_at >= :tx_from AND t.created_at <= :tx_to');
-  txParams.tx_from = `${from} 00:00:00`;
-  txParams.tx_to = `${to} 23:59:59`;
-
-  if (tx_status && tx_status !== 'all') {
-    txWhere.push('t.status = :tx_status');
-    txParams.tx_status = tx_status;
-  }
-
-  const txWhereSql = txWhere.length ? `WHERE ${txWhere.join(' AND ')}` : '';
-
-  // Previous period where
-  const subWherePrev = [];
-  const subPrevParams = { ...subParams };
-  subWherePrev.push('s.created_at >= :sub_prev_from AND s.created_at <= :sub_prev_to');
-  subPrevParams.sub_prev_from = `${prevFromStr} 00:00:00`;
-  subPrevParams.sub_prev_to = `${prevToStr} 23:59:59`;
-  if (track) { /* already in subPrevParams.track */ }
-  if (sub_status && sub_status !== 'all') { /* already in subPrevParams.sub_status */ }
-  const subWherePrevSql = `WHERE ${subWherePrev.join(' AND ')}${track ? ' AND s.track_id = :track' : ''}${(sub_status && sub_status !== 'all') ? ' AND s.status = :sub_status' : ''}`;
-
-  const txWherePrev = [];
-  const txPrevParams = { ...txParams };
-  txWherePrev.push('t.created_at >= :tx_prev_from AND t.created_at <= :tx_prev_to');
-  txPrevParams.tx_prev_from = `${prevFromStr} 00:00:00`;
-  txPrevParams.tx_prev_to = `${prevToStr} 23:59:59`;
-  const txWherePrevSql = `WHERE ${txWherePrev.join(' AND ')}${(tx_status && tx_status !== 'all') ? ' AND t.status = :tx_status' : ''}`;
-
-  // ---- Helpers for % change ----
-  const pct = (cur, prev) => {
-    const c = Number(cur || 0);
-    const p = Number(prev || 0);
-    if (p === 0 && c === 0) return 0;
-    if (p === 0) return 100;
-    return Math.round(((c - p) / p) * 100);
-  };
-
-  try {
-    // Dropdown options: tracks list (for filter)
-    const [trackOptions] = await req.db.query(`
-      SELECT DISTINCT track_id
-      FROM subscriptions
-      WHERE track_id IS NOT NULL AND track_id <> ''
-      ORDER BY track_id ASC
-      LIMIT 300
-    `);
-
-    // KPIs (current period)
-    const [[{ totalUsers }]] = await req.db.query(
-      `SELECT COUNT(*) AS totalUsers FROM users WHERE created_at >= :u_from AND created_at <= :u_to`,
-      { u_from: `${from} 00:00:00`, u_to: `${to} 23:59:59` }
-    );
-
-    const [[{ subsCount }]] = await req.db.query(
-      `SELECT COUNT(*) AS subsCount FROM subscriptions s ${subWhereSql}`,
-      subParams
-    );
-
-    const [[{ salesAmount }]] = await req.db.query(
-      `SELECT COALESCE(SUM(t.amount),0) AS salesAmount FROM transactions t ${txWhereSql}`,
-      txParams
-    );
-
-    // KPIs (previous period)
-    const [[{ prevUsers }]] = await req.db.query(
-      `SELECT COUNT(*) AS prevUsers FROM users WHERE created_at >= :u_from AND created_at <= :u_to`,
-      { u_from: `${prevFromStr} 00:00:00`, u_to: `${prevToStr} 23:59:59` }
-    );
-
-    const [[{ prevSubsCount }]] = await req.db.query(
-      `SELECT COUNT(*) AS prevSubsCount FROM subscriptions s ${subWherePrevSql}`,
-      subPrevParams
-    );
-
-    const [[{ prevSalesAmount }]] = await req.db.query(
-      `SELECT COALESCE(SUM(t.amount),0) AS prevSalesAmount FROM transactions t ${txWherePrevSql}`,
-      txPrevParams
-    );
-
-    // Monthly series (range-based; for big brand feel)
-    // Group by DATE (daily) if range <= 45 days, else by month
-    const useDaily = days <= 45;
-
-    const [subsSeries] = await req.db.query(
-      `
-      SELECT
-        ${useDaily ? "DATE(s.created_at)" : "DATE_FORMAT(s.created_at, '%Y-%m')"} AS x,
-        COUNT(*) AS y
-      FROM subscriptions s
-      ${subWhereSql}
-      GROUP BY x
-      ORDER BY x
-      `,
-      subParams
-    );
-
-    const [salesSeries] = await req.db.query(
-      `
-      SELECT
-        ${useDaily ? "DATE(t.created_at)" : "DATE_FORMAT(t.created_at, '%Y-%m')"} AS x,
-        COALESCE(SUM(t.amount),0) AS y
-      FROM transactions t
-      ${txWhereSql}
-      GROUP BY x
-      ORDER BY x
-      `,
-      txParams
-    );
-
-    // Top tracks table (current period)
-    const [topTracks] = await req.db.query(
-      `
-      SELECT s.track_id, COUNT(*) AS cnt
-      FROM subscriptions s
-      ${subWhereSql}
-      GROUP BY s.track_id
-      ORDER BY cnt DESC
-      LIMIT 10
-      `,
-      subParams
-    );
-
-    // Recent transactions (current period)
-    const [recentTxns] = await req.db.query(
-      `
-      SELECT t.created_at, t.order_id, t.payment_id, t.email, t.amount, t.status, t.method
-      FROM transactions t
-      ${txWhereSql}
-      ORDER BY t.created_at DESC
-      LIMIT 12
-      `,
-      txParams
-    );
-
-    const filters = {
-      preset,
-      from,
-      to,
-      track,
-      sub_status,
-      tx_status
-    };
-
-    res.render('dashboard', {
-      title: 'Admin Dashboard',
-      filters,
-      ranges: { from, to, prevFrom: prevFromStr, prevTo: prevToStr, days },
-      trackOptions: (trackOptions || []).map(r => r.track_id),
-      stats: {
-        totalUsers,
-        subsCount,
-        salesAmount,
-        deltas: {
-          usersPct: pct(totalUsers, prevUsers),
-          subsPct: pct(subsCount, prevSubsCount),
-          salesPct: pct(salesAmount, prevSalesAmount)
-        }
-      },
-      subsSeries,
-      salesSeries,
-      topTracks,
-      recentTxns
-    });
-  } catch (err) {
-    console.error(err);
-    res.render('dashboard', {
-      title: 'Admin Dashboard',
-      filters: { preset, from, to, track, sub_status, tx_status },
-      ranges: { from, to, prevFrom: prevFromStr, prevTo: prevToStr, days },
-      trackOptions: [],
-      stats: {
-        totalUsers: 0,
-        subsCount: 0,
-        salesAmount: 0,
-        deltas: { usersPct: 0, subsPct: 0, salesPct: 0 }
-      },
-      subsSeries: [],
-      salesSeries: [],
-      topTracks: [],
-      recentTxns: []
-    });
-  }
-});
 
 
 
 // ---------- Users (paginated + CRUD) ----------
+function buildUsersQueryString(filters, extra = {}) {
+  const p = new URLSearchParams();
+  const f = filters || {};
+  ['q', 'from', 'to', 'sort', 'dir', 'limit'].forEach((k) => {
+    const v = f[k];
+    if (v !== undefined && v !== null && String(v).trim() !== '') p.set(k, String(v).trim());
+  });
+  Object.keys(extra || {}).forEach((k) => {
+    if (extra[k] !== undefined && extra[k] !== null) p.set(k, extra[k]);
+  });
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+function countUsersActiveFilters(filters) {
+  let n = 0;
+  if (String(filters.q || '').trim()) n++;
+  if (filters.from) n++;
+  if (filters.to) n++;
+  if (filters.sort && filters.sort !== 'created_at') n++;
+  if (filters.dir && filters.dir !== 'desc') n++;
+  if (filters.limit && Number(filters.limit) !== 20) n++;
+  return n;
+}
+
+function usersListHasUserFilters(filters) {
+  return countUsersActiveFilters(filters) > 0;
+}
+
+function usersRedirectAfterWrite(req) {
+  const ret = String(req.body._list_return || '').trim();
+  if (ret) return `/admin/users?${ret}`;
+  const q = buildUsersQueryString({
+    q: req.query.q,
+    from: req.query.from,
+    to: req.query.to,
+    sort: req.query.sort,
+    dir: req.query.dir,
+    limit: req.query.limit,
+    page: req.query.page,
+  });
+  return `/admin/users${q}`;
+}
+
 router.get('/users', requireAuth, async (req, res) => {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
@@ -435,19 +256,30 @@ router.get('/users', requireAuth, async (req, res) => {
       params
     );
 
+    const pages = Math.max(1, Math.ceil(Number(total) / limit));
+    const listReturnQs = buildUsersQueryString(filters).replace(/^\?/, '');
+
     res.render('users', {
-      title: 'User Management',
+      title: 'Users',
       users: rows,
       filters,
-      pagination: { page, limit, total }
+      pagination: { page, limit, total, totalPages: pages },
+      activeFilterCount: countUsersActiveFilters(filters),
+      datasetEmpty: Number(total) === 0 && !usersListHasUserFilters(filters),
+      listReturnQs,
+      qsBase: (extra) => buildUsersQueryString(filters, extra),
     });
   } catch (err) {
     console.error(err);
     res.render('users', {
-      title: 'User Management',
+      title: 'Users',
       users: [],
       filters,
-      pagination: { page: 1, limit, total: 0 }
+      pagination: { page: 1, limit, total: 0, totalPages: 1 },
+      activeFilterCount: countUsersActiveFilters(filters),
+      datasetEmpty: false,
+      listReturnQs: '',
+      qsBase: (extra) => buildUsersQueryString(filters, extra),
     });
   }
 });
@@ -527,7 +359,7 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       req.flash('error', errors.array().map(e => e.msg));
-      return res.redirect('/admin/users');
+      return res.redirect(usersRedirectAfterWrite(req));
     }
     const { name, email, password } = req.body;
     try {
@@ -541,7 +373,8 @@ router.post(
       console.error(e);
       req.flash('error', 'Could not create user (duplicate email?)');
     }
-    res.redirect('/admin/users');
+    const redirect = usersRedirectAfterWrite(req);
+    res.redirect(redirect);
   }
 );
 
@@ -554,11 +387,12 @@ router.post(
   async (req, res) => {
     const { id } = req.params;
     const { name, email, password } = req.body;
+    const backDetail = req.body._redirect === 'detail';
     try {
       if (password && password.trim().length > 0) {
         if (password.length < 6) {
           req.flash('error', 'New password must be at least 6 chars');
-          return res.redirect('/admin/users');
+          return res.redirect(backDetail ? `/admin/users/${id}` : usersRedirectAfterWrite(req));
         }
         const password_hash = await bcrypt.hash(password, 10);
         await req.db.query(
@@ -576,7 +410,12 @@ router.post(
       console.error(e);
       req.flash('error', 'Could not update user');
     }
-    res.redirect('/admin/users');
+  if (backDetail) {
+    const ret = String(req.body._list_return || '').trim();
+    const qs = ret ? `?return=${encodeURIComponent(ret)}` : '';
+    return res.redirect(`/admin/users/${id}${qs}`);
+  }
+    res.redirect(usersRedirectAfterWrite(req));
   }
 );
 
@@ -585,315 +424,18 @@ router.post('/users/:id/delete', requireAuth, requireRole(['super']), async (req
   const { id } = req.params
   try { await req.db.query('DELETE FROM users WHERE id=:id', { id }); req.flash('success', 'User deleted') }
   catch (e) { req.flash('error', 'Could not delete user') }
-  res.redirect('/admin/users')
+  res.redirect(usersRedirectAfterWrite(req))
 })
 
 // ---------- Subscriptions (paginated + CSV + CRUD) ----------
-router.get('/subscriptions', requireAuth, async (req, res) => {
-  const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
-  const offset = (page - 1) * limit;
-
-  // Filters
-  const q = String(req.query.q || '').trim();
-  const status = String(req.query.status || '').trim(); // active|expired|cancelled
-  const track = String(req.query.track || '').trim();
-  const user_id = String(req.query.user_id || '').trim();
-
-  const from = String(req.query.from || '').trim(); // created_at
-  const to = String(req.query.to || '').trim();
-
-  const start_from = String(req.query.start_from || '').trim();
-  const start_to = String(req.query.start_to || '').trim();
-
-  const end_from = String(req.query.end_from || '').trim();
-  const end_to = String(req.query.end_to || '').trim();
-
-  const sort = String(req.query.sort || 'created_at').trim();
-  const dir = String(req.query.dir || 'desc').trim().toLowerCase();
-
-  // Safe sort whitelist
-  const SORT_MAP = {
-    created_at: 's.created_at',
-    start_date: 's.start_date',
-    end_date: 's.end_date',
-    status: 's.status',
-    track_id: 's.track_id'
-  };
-  const sortSql = SORT_MAP[sort] || 's.created_at';
-  const dirSql = dir === 'asc' ? 'ASC' : 'DESC';
-
-  // WHERE builder (named params)
-  const where = [];
-  const params = { limit, offset };
-
-  // Quick search across: subscription id, user name, email, track_id
-  if (q) {
-    const qMaybeId = Number(q);
-    if (Number.isInteger(qMaybeId) && qMaybeId > 0) {
-      where.push('(s.id = :qid OR u.name LIKE :q OR u.email LIKE :q OR CAST(s.track_id AS CHAR) LIKE :q)');
-      params.qid = qMaybeId;
-    } else {
-      where.push('(u.name LIKE :q OR u.email LIKE :q OR CAST(s.track_id AS CHAR) LIKE :q)');
-    }
-    params.q = `%${q}%`;
-  }
-
-  // Status
-  if (status && ['active', 'expired', 'cancelled'].includes(status)) {
-    where.push('s.status = :status');
-    params.status = status;
-  }
-
-  // Track exact/partial match
-  if (track) {
-    where.push('CAST(s.track_id AS CHAR) LIKE :track');
-    params.track = `%${track}%`;
-  }
-
-  // User ID
-  if (user_id) {
-    const uid = Number(user_id);
-    if (Number.isInteger(uid) && uid > 0) {
-      where.push('s.user_id = :user_id');
-      params.user_id = uid;
-    }
-  }
-
-  // created_at date range (DATETIME)
-  if (from) {
-    where.push('s.created_at >= :from');
-    params.from = `${from} 00:00:00`;
-  }
-  if (to) {
-    where.push('s.created_at <= :to');
-    params.to = `${to} 23:59:59`;
-  }
-
-  // start_date range (DATE/DATETIME safe)
-  if (start_from) {
-    where.push('s.start_date >= :start_from');
-    params.start_from = `${start_from} 00:00:00`;
-  }
-  if (start_to) {
-    where.push('s.start_date <= :start_to');
-    params.start_to = `${start_to} 23:59:59`;
-  }
-
-  // end_date range
-  if (end_from) {
-    where.push('s.end_date >= :end_from');
-    params.end_from = `${end_from} 00:00:00`;
-  }
-  if (end_to) {
-    where.push('s.end_date <= :end_to');
-    params.end_to = `${end_to} 23:59:59`;
-  }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
-  // Pass filters back to EJS
-  const filters = {
-    q,
-    status,
-    track,
-    user_id,
-    from,
-    to,
-    start_from,
-    start_to,
-    end_from,
-    end_to,
-    sort,
-    dir,
-    limit
-  };
-
-  try {
-    // total with SAME WHERE
-    const [[{ total }]] = await req.db.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM subscriptions s
-      JOIN users u ON u.id = s.user_id
-      ${whereSql}
-      `,
-      params
-    );
-
-    // rows with SAME WHERE
-    const [rows] = await req.db.query(
-      `
-      SELECT s.id, u.name AS user_name, u.email,
-             s.track_id, s.status, s.start_date, s.end_date, s.created_at, s.user_id
-      FROM subscriptions s
-      JOIN users u ON u.id = s.user_id
-      ${whereSql}
-      ORDER BY ${sortSql} ${dirSql}
-      LIMIT :limit OFFSET :offset
-      `,
-      params
-    );
-
-    res.render('subscriptions', {
-      title: 'Subscription Report',
-      subs: rows,
-      pagination: { page, limit, total },
-      filters
-    });
-  } catch (err) {
-    console.error(err);
-    res.render('subscriptions', {
-      title: 'Subscription Report',
-      subs: [],
-      pagination: { page, limit, total: 0 },
-      filters
-    });
-  }
-});
-
-router.get('/subscriptions.csv', requireAuth, async (req, res) => {
-  // Same filters as the page (but no pagination; capped)
-  const q = String(req.query.q || '').trim();
-  const status = String(req.query.status || '').trim();
-  const track = String(req.query.track || '').trim();
-  const user_id = String(req.query.user_id || '').trim();
-
-  const from = String(req.query.from || '').trim();
-  const to = String(req.query.to || '').trim();
-
-  const start_from = String(req.query.start_from || '').trim();
-  const start_to = String(req.query.start_to || '').trim();
-
-  const end_from = String(req.query.end_from || '').trim();
-  const end_to = String(req.query.end_to || '').trim();
-
-  const sort = String(req.query.sort || 'created_at').trim();
-  const dir = String(req.query.dir || 'desc').trim().toLowerCase();
-
-  const SORT_MAP = {
-    created_at: 's.created_at',
-    start_date: 's.start_date',
-    end_date: 's.end_date',
-    status: 's.status',
-    track_id: 's.track_id'
-  };
-  const sortSql = SORT_MAP[sort] || 's.created_at';
-  const dirSql = dir === 'asc' ? 'ASC' : 'DESC';
-
-  const where = [];
-  const params = {};
-
-  if (q) {
-    const qMaybeId = Number(q);
-    if (Number.isInteger(qMaybeId) && qMaybeId > 0) {
-      where.push('(s.id = :qid OR u.name LIKE :q OR u.email LIKE :q OR CAST(s.track_id AS CHAR) LIKE :q)');
-      params.qid = qMaybeId;
-    } else {
-      where.push('(u.name LIKE :q OR u.email LIKE :q OR CAST(s.track_id AS CHAR) LIKE :q)');
-    }
-    params.q = `%${q}%`;
-  }
-
-  if (status && ['active', 'expired', 'cancelled'].includes(status)) {
-    where.push('s.status = :status');
-    params.status = status;
-  }
-
-  if (track) {
-    where.push('CAST(s.track_id AS CHAR) LIKE :track');
-    params.track = `%${track}%`;
-  }
-
-  if (user_id) {
-    const uid = Number(user_id);
-    if (Number.isInteger(uid) && uid > 0) {
-      where.push('s.user_id = :user_id');
-      params.user_id = uid;
-    }
-  }
-
-  if (from) { where.push('s.created_at >= :from'); params.from = `${from} 00:00:00`; }
-  if (to) { where.push('s.created_at <= :to'); params.to = `${to} 23:59:59`; }
-
-  if (start_from) { where.push('s.start_date >= :start_from'); params.start_from = `${start_from} 00:00:00`; }
-  if (start_to) { where.push('s.start_date <= :start_to'); params.start_to = `${start_to} 23:59:59`; }
-
-  if (end_from) { where.push('s.end_date >= :end_from'); params.end_from = `${end_from} 00:00:00`; }
-  if (end_to) { where.push('s.end_date <= :end_to'); params.end_to = `${end_to} 23:59:59`; }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
-  try {
-    const [rows] = await req.db.query(
-      `
-      SELECT s.id, u.name AS user_name, u.email, s.track_id, s.status, s.start_date, s.end_date, s.created_at
-      FROM subscriptions s
-      JOIN users u ON u.id = s.user_id
-      ${whereSql}
-      ORDER BY ${sortSql} ${dirSql}
-      LIMIT 10000
-      `,
-      params
-    );
-
-    const header = [
-      'id','user_name','email','track_id','status','start_date','end_date','created_at'
-    ].map(csvEscape).join(',') + '\n';
-
-    const lines = rows.map(r => [
-      r.id,
-      r.user_name,
-      r.email,
-      r.track_id,
-      r.status,
-      r.start_date || '',
-      r.end_date || '',
-      r.created_at
-    ].map(csvEscape).join(',')).join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="subscriptions.csv"');
-    res.send(header + lines);
-  } catch (e) {
-    console.error(e);
-    res.status(500).send('Failed to export CSV');
-  }
-});
-
-
-router.post('/subscriptions', requireAuth, requireRole(['super','manager']),
-  body('user_id').isInt(), body('track').notEmpty(), body('status').isIn(['active','expired','cancelled']).optional(),
-  async (req, res) => {
-    const { user_id, track, status, start_date, end_date } = req.body
-    try {
-      await req.db.query('INSERT INTO subscriptions (user_id, track_id, status, start_date, end_date) VALUES (:user_id, :track, :status, :start_date, :end_date)', {
-        user_id, track, status: status || 'active', start_date: start_date || null, end_date: end_date || null
-      })
-      req.flash('success', 'Subscription created')
-    } catch (e) { console.error(e); req.flash('error', 'Could not create subscription') }
-    res.redirect('/admin/subscriptions')
-  })
-router.post('/subscriptions/:id', requireAuth, requireRole(['super','manager']),
-  async (req, res) => {
-    const { id } = req.params
-    const { track, status, start_date, end_date } = req.body
-    try {
-      await req.db.query('UPDATE subscriptions SET track_id=:track, status=:status, start_date=:start_date, end_date=:end_date WHERE id=:id', {
-        id, track, status, start_date: start_date || null, end_date: end_date || null
-      })
-      req.flash('success', 'Subscription updated')
-    } catch (e) { console.error(e); req.flash('error', 'Could not update subscription') }
-    res.redirect('/admin/subscriptions')
-  })
-router.post('/subscriptions/:id/delete', requireAuth, requireRole(['super']), async (req, res) => {
-  const { id } = req.params
-  try { await req.db.query('DELETE FROM subscriptions WHERE id=:id', { id }); req.flash('success', 'Subscription deleted') }
-  catch (e) { console.error(e); req.flash('error', 'Could not delete subscription') }
-  res.redirect('/admin/subscriptions')
-})
-
 // ---------- Transactions (paginated + filters + CSV) ----------
+const txDisplay = require('../utils/adminTxDisplay');
+
+function countTxActiveFilters(filters) {
+  const keys = ['q', 'status', 'method', 'from', 'to', 'min_amount', 'max_amount', 'has_receipt', 'has_payment_id', 'currency', 'sort', 'dir', 'limit'];
+  return keys.reduce((acc, k) => (String(filters[k] || '').trim() ? acc + 1 : acc), 0);
+}
+
 router.get('/transactions', requireAuth, async (req, res) => {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 200);
@@ -906,6 +448,8 @@ router.get('/transactions', requireAuth, async (req, res) => {
   const from = String(req.query.from || '').trim(); // YYYY-MM-DD
   const to = String(req.query.to || '').trim();     // YYYY-MM-DD
   const currency = String(req.query.currency || '').trim();
+  const has_receipt = String(req.query.has_receipt || '').trim();
+  const has_payment_id = String(req.query.has_payment_id || '').trim();
 
   const min_amount = String(req.query.min_amount || '').trim(); // rupees
   const max_amount = String(req.query.max_amount || '').trim(); // rupees
@@ -934,9 +478,21 @@ router.get('/transactions', requireAuth, async (req, res) => {
   }
 
   // Status (optional whitelist)
-  if (status && ['created', 'authorized', 'captured', 'failed', 'refunded'].includes(status)) {
+  if (status && ['created', 'authorized', 'in_transit', 'captured', 'failed', 'refunded'].includes(status)) {
     where.push('t.status = :status');
     params.status = status;
+  }
+
+  if (has_payment_id === '1') {
+    where.push('(t.payment_id IS NOT NULL AND TRIM(t.payment_id) <> "")');
+  } else if (has_payment_id === '0') {
+    where.push('(t.payment_id IS NULL OR TRIM(t.payment_id) = "")');
+  }
+
+  if (has_receipt === '1') {
+    where.push('(t.receipt IS NOT NULL AND TRIM(t.receipt) <> "")');
+  } else if (has_receipt === '0') {
+    where.push('(t.receipt IS NULL OR TRIM(t.receipt) = "")');
   }
 
   // Method
@@ -985,9 +541,11 @@ router.get('/transactions', requireAuth, async (req, res) => {
     currency,
     min_amount,
     max_amount,
+    has_receipt,
+    has_payment_id,
     sort,
     dir,
-    limit
+    limit,
   };
 
   try {
@@ -997,12 +555,16 @@ router.get('/transactions', requireAuth, async (req, res) => {
       params
     );
 
+    const userJoin = `LEFT JOIN users u ON t.email IS NOT NULL AND TRIM(t.email) <> '' AND u.email = t.email`;
+
     // ROWS (same WHERE)
     const [rows] = await req.db.query(
       `
       SELECT t.id, t.order_id, t.payment_id, t.receipt, t.email,
-             t.amount, t.currency, t.status, t.method, t.created_at
+             t.amount, t.currency, t.status, t.method, t.created_at,
+             u.name AS user_name
       FROM transactions t
+      ${userJoin}
       ${whereSql}
       ORDER BY ${sortSql} ${dirSql}
       LIMIT :limit OFFSET :offset
@@ -1011,18 +573,24 @@ router.get('/transactions', requireAuth, async (req, res) => {
     );
 
     res.render('transactions', {
-      title: 'Transaction Report',
+      title: 'Transactions',
       txns: rows,
       filters,
-      pagination: { page, limit, total }
+      pagination: { page, limit, total },
+      txDisplay,
+      activeFilterCount: countTxActiveFilters(filters),
+      datasetEmpty: Number(total) === 0 && !where.length,
     });
   } catch (err) {
     console.error(err);
     res.render('transactions', {
-      title: 'Transaction Report',
+      title: 'Transactions',
       txns: [],
       filters,
-      pagination: { page, limit, total: 0 }
+      pagination: { page, limit, total: 0 },
+      txDisplay,
+      activeFilterCount: countTxActiveFilters(filters),
+      datasetEmpty: false,
     });
   }
 });
@@ -1037,6 +605,8 @@ router.get('/transactions.csv', requireAuth, async (req, res) => {
   const currency = String(req.query.currency || '').trim();
   const min_amount = String(req.query.min_amount || '').trim();
   const max_amount = String(req.query.max_amount || '').trim();
+  const has_receipt = String(req.query.has_receipt || '').trim();
+  const has_payment_id = String(req.query.has_payment_id || '').trim();
 
   const sort = String(req.query.sort || 'created_at').trim();
   const dir = String(req.query.dir || 'desc').trim().toLowerCase();
@@ -1057,9 +627,19 @@ router.get('/transactions.csv', requireAuth, async (req, res) => {
     where.push('(t.order_id LIKE :q OR t.payment_id LIKE :q OR t.receipt LIKE :q OR t.email LIKE :q)');
     params.q = `%${q}%`;
   }
-  if (status && ['created', 'authorized', 'captured', 'failed', 'refunded'].includes(status)) {
+  if (status && ['created', 'authorized', 'in_transit', 'captured', 'failed', 'refunded'].includes(status)) {
     where.push('t.status = :status');
     params.status = status;
+  }
+  if (has_payment_id === '1') {
+    where.push('(t.payment_id IS NOT NULL AND TRIM(t.payment_id) <> "")');
+  } else if (has_payment_id === '0') {
+    where.push('(t.payment_id IS NULL OR TRIM(t.payment_id) = "")');
+  }
+  if (has_receipt === '1') {
+    where.push('(t.receipt IS NOT NULL AND TRIM(t.receipt) <> "")');
+  } else if (has_receipt === '0') {
+    where.push('(t.receipt IS NULL OR TRIM(t.receipt) = "")');
   }
   if (method) {
     where.push('t.method = :method');
@@ -1313,38 +893,143 @@ const slugify = (s) => String(s || '')
 
 
 
+function countCategoryActiveFilters(filters) {
+  let n = 0;
+  if (String(filters.q || '').trim()) n++;
+  if (filters.has_thumb && filters.has_thumb !== 'all') n++;
+  if (filters.limit && Number(filters.limit) !== 20) n++;
+  return n;
+}
+
+function categoryActionRedirect(req, id) {
+  const ret = String(req.body.return || '').trim();
+  if (ret === 'detail') return `/admin/categories/${id}`;
+  if (ret && ret !== 'list') return `/admin/categories?${ret}`;
+  return '/admin/categories';
+}
+
 router.get('/categories', requireAuth, async (req, res) => {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-  const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10), 5), 100);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
   const offset = (page - 1) * limit;
 
+  const q = String(req.query.q || '').trim();
+  const has_thumb = String(req.query.has_thumb || 'all').trim();
+  const where = [];
+  const whereParams = {};
+
+  if (q) {
+    where.push('(c.name LIKE :q OR c.slug LIKE :q OR c.description LIKE :q)');
+    whereParams.q = `%${q}%`;
+  }
+  if (has_thumb === 'yes') {
+    where.push('(c.thumbnail_path IS NOT NULL AND TRIM(c.thumbnail_path) <> \'\')');
+  } else if (has_thumb === 'no') {
+    where.push('(c.thumbnail_path IS NULL OR TRIM(c.thumbnail_path) = \'\')');
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
   try {
-    const [[{ total }]] = await req.db.query('SELECT COUNT(*) AS total FROM categories');
+    const [[{ total }]] = await req.db.query(
+      `SELECT COUNT(*) AS total FROM categories c ${whereSql}`,
+      whereParams
+    );
 
     const [rows] = await req.db.query(
       `
-      SELECT id, name, slug, description, created_at, thumbnail_path, sort_order
-      FROM categories
-      ORDER BY sort_order ASC, created_at DESC
+      SELECT
+        c.id, c.name, c.slug, c.description, c.created_at, c.thumbnail_path, c.sort_order,
+        (SELECT COUNT(*) FROM tracks t WHERE t.category_id = c.id) AS track_count
+      FROM categories c
+      ${whereSql}
+      ORDER BY c.sort_order ASC, c.created_at DESC
       LIMIT :limit OFFSET :offset
       `,
-      { limit, offset }
+      { ...whereParams, limit, offset }
     );
 
+    let orderRows = [];
+    if (req.session?.admin && ['super', 'manager'].includes(req.session.admin.role)) {
+      const [orderList] = await req.db.query(
+        `SELECT id, name, sort_order FROM categories ORDER BY sort_order ASC, id ASC`
+      );
+      orderRows = orderList;
+    }
+
+    const filters = { q, has_thumb, limit: String(limit) };
     res.render('categories', {
       title: 'Categories',
       categories: rows,
-      pagination: { page, limit, total }
+      orderRows,
+      pagination: { page, limit, total },
+      filters,
+      activeFilterCount: countCategoryActiveFilters(filters),
+      datasetEmpty: Number(total) === 0 && !where.length,
     });
   } catch (e) {
     console.error(e);
+    const filters = { q: '', has_thumb: 'all', limit: '20' };
     res.render('categories', {
       title: 'Categories',
       categories: [],
-      pagination: { page: 1, limit: 20, total: 0 }
+      orderRows: [],
+      pagination: { page: 1, limit: 20, total: 0 },
+      filters,
+      activeFilterCount: countCategoryActiveFilters(filters),
+      datasetEmpty: false,
     });
   }
 });
+
+router.get(
+  '/categories/:id',
+  requireAuth,
+  param('id').isInt(),
+  async (req, res) => {
+    const id = Number(req.params.id);
+    try {
+      const [rows] = await req.db.query(
+        `
+        SELECT
+          c.*,
+          (SELECT COUNT(*) FROM tracks t WHERE t.category_id = c.id) AS track_count
+        FROM categories c
+        WHERE c.id = :id
+        LIMIT 1
+        `,
+        { id }
+      );
+      if (!rows[0]) {
+        req.flash('error', 'Category not found');
+        return res.redirect('/admin/categories');
+      }
+
+      const [tracks] = await req.db.query(
+        `
+        SELECT id, title, status, sort_order
+        FROM tracks
+        WHERE category_id = :id
+        ORDER BY sort_order ASC, id ASC
+        LIMIT 25
+        `,
+        { id }
+      );
+
+      const returnQs = String(req.query.return || '').trim();
+      return res.render('category-detail', {
+        title: rows[0].name,
+        category: rows[0],
+        tracks,
+        returnQs,
+      });
+    } catch (e) {
+      console.error(e);
+      req.flash('error', 'Failed to load category');
+      return res.redirect('/admin/categories');
+    }
+  }
+);
 
 // -----------------------------
 // POST: Create Category
@@ -1404,9 +1089,6 @@ router.post(
   requireAuth,
   requireRole(['super', 'manager']),
   async (req, res) => {
-
-    console.log('req.body',req.body)
-
     try {
       const order = Array.isArray(req.body.order) ? req.body.order : [];
       if (!order.length) return res.status(400).json({ error: 'No order provided' });
@@ -1529,9 +1211,10 @@ router.post(
     } catch (e) {
       console.error(e);
       req.flash('error', 'Failed to update category');
+      return res.redirect(categoryActionRedirect(req, id));
     }
 
-    res.redirect('/admin/categories');
+    res.redirect(categoryActionRedirect(req, id));
   }
 );
 
@@ -1555,12 +1238,14 @@ router.post(
     try {
       await req.db.query('DELETE FROM categories WHERE id=:id', { id });
       req.flash('success', 'Category deleted');
+      const ret = String(req.body.return || '').trim();
+      if (ret && ret !== 'detail' && ret !== 'list') return res.redirect(`/admin/categories?${ret}`);
+      return res.redirect('/admin/categories');
     } catch (e) {
       console.error(e);
       req.flash('error', 'Cannot delete: category has linked tracks');
+      return res.redirect(categoryActionRedirect(req, id));
     }
-
-    res.redirect('/admin/categories');
   }
 );
 
@@ -1786,45 +1471,61 @@ const toPaise = (inr) => {
 // );
 
 
+function countTrackActiveFilters(filters) {
+  let n = 0;
+  if (String(filters.q || '').trim()) n++;
+  if (filters.category_id && Number(filters.category_id) > 0) n++;
+  if (filters.type && filters.type !== 'all') n++;
+  if (filters.status && filters.status !== 'all') n++;
+  if (String(filters.date_from || '').trim()) n++;
+  if (String(filters.date_to || '').trim()) n++;
+  if (filters.limit && Number(filters.limit) !== 20) n++;
+  return n;
+}
+
+function trackActionRedirect(req, id) {
+  const ret = String(req.body.return || '').trim();
+  if (ret === 'detail') return `/admin/tracks/${id}`;
+  if (ret && ret !== 'list') return `/admin/tracks?${ret}`;
+  return '/admin/tracks';
+}
+
 router.get('/tracks', requireAuth, async (req, res) => {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 5), 100);
   const offset = (page - 1) * limit;
 
-  // Filters
   const selectedCategoryId = Number(req.query.category_id || 0);
   const q = String(req.query.q || '').trim();
-  const type = String(req.query.type || 'all').trim(); // all | free | premium
-  const date_from = String(req.query.date_from || '').trim(); // YYYY-MM-DD
-  const date_to = String(req.query.date_to || '').trim();     // YYYY-MM-DD
+  const type = String(req.query.type || 'all').trim();
+  const status = String(req.query.status || 'all').trim();
+  const date_from = String(req.query.date_from || '').trim();
+  const date_to = String(req.query.date_to || '').trim();
 
-  // Build WHERE dynamically (safe with named params)
   const where = [];
   const params = { limit, offset };
 
-  // Category
   if (selectedCategoryId > 0) {
     where.push('t.category_id = :category_id');
     params.category_id = selectedCategoryId;
   }
 
-  // Name (title) search
   if (q) {
     where.push('t.title LIKE :q');
     params.q = `%${q}%`;
   }
 
-  // Type filter (free/premium)
   if (type === 'free') {
     where.push('t.price_paise = 0');
   } else if (type === 'premium') {
     where.push('t.price_paise > 0');
   }
 
-  // Date range (created_at)
-  // created_at is DATETIME, so:
-  // - date_from uses 00:00:00
-  // - date_to uses 23:59:59
+  if (status === 'active' || status === 'inactive') {
+    where.push('t.status = :status');
+    params.status = status;
+  }
+
   if (date_from) {
     where.push('t.created_at >= :date_from');
     params.date_from = `${date_from} 00:00:00`;
@@ -1841,17 +1542,11 @@ router.get('/tracks', requireAuth, async (req, res) => {
       'SELECT id, name FROM categories ORDER BY sort_order ASC, name ASC'
     );
 
-    // TOTAL (must use same WHERE)
     const [[{ total }]] = await req.db.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM tracks t
-      ${whereSql}
-      `,
+      `SELECT COUNT(*) AS total FROM tracks t ${whereSql}`,
       params
     );
 
-    // ROWS (same WHERE)
     const [rows] = await req.db.query(
       `
       SELECT t.id, t.title, t.description, t.mp3_path, t.thumbnail_path,
@@ -1860,44 +1555,110 @@ router.get('/tracks', requireAuth, async (req, res) => {
       FROM tracks t
       JOIN categories c ON c.id = t.category_id
       ${whereSql}
-      ORDER BY
-        t.category_id ASC,
-        t.sort_order ASC,
-        t.created_at DESC
+      ORDER BY t.category_id ASC, t.sort_order ASC, t.created_at DESC
       LIMIT :limit OFFSET :offset
       `,
       params
     );
 
+    let orderRows = [];
+    if (selectedCategoryId > 0 && req.session?.admin && ['super', 'manager'].includes(req.session.admin.role)) {
+      const [orderList] = await req.db.query(
+        `
+        SELECT id, title, sort_order
+        FROM tracks
+        WHERE category_id = :category_id
+        ORDER BY sort_order ASC, id ASC
+        `,
+        { category_id: selectedCategoryId }
+      );
+      orderRows = orderList;
+    }
+
+    const filters = {
+      q,
+      category_id: selectedCategoryId ? String(selectedCategoryId) : '0',
+      type,
+      status,
+      date_from,
+      date_to,
+      limit: String(limit),
+    };
+
     res.render('tracks', {
-      title: 'Play Tracks',
+      title: 'Tracks',
       tracks: rows,
       categories: cats,
-      selectedCategoryId,
+      orderRows,
       pagination: { page, limit, total },
-
-      // Pass filter values back to EJS (so inputs stay filled)
-      q,
-      type,
-      date_from,
-      date_to
+      filters,
+      activeFilterCount: countTrackActiveFilters(filters),
+      datasetEmpty: Number(total) === 0 && !where.length,
     });
   } catch (e) {
     console.error(e);
+    const filters = {
+      q: '',
+      category_id: '0',
+      type: 'all',
+      status: 'all',
+      date_from: '',
+      date_to: '',
+      limit: '20',
+    };
     res.render('tracks', {
-      title: 'Play Tracks',
+      title: 'Tracks',
       tracks: [],
       categories: [],
-      selectedCategoryId: 0,
+      orderRows: [],
       pagination: { page: 1, limit: 20, total: 0 },
-
-      q: '',
-      type: 'all',
-      date_from: '',
-      date_to: ''
+      filters,
+      activeFilterCount: countTrackActiveFilters(filters),
+      datasetEmpty: false,
     });
   }
 });
+
+router.get(
+  '/tracks/:id',
+  requireAuth,
+  param('id').isInt(),
+  async (req, res) => {
+    const id = Number(req.params.id);
+    try {
+      const [rows] = await req.db.query(
+        `
+        SELECT t.*, c.name AS category_name
+        FROM tracks t
+        JOIN categories c ON c.id = t.category_id
+        WHERE t.id = :id
+        LIMIT 1
+        `,
+        { id }
+      );
+      if (!rows[0]) {
+        req.flash('error', 'Track not found');
+        return res.redirect('/admin/tracks');
+      }
+
+      const [cats] = await req.db.query(
+        'SELECT id, name FROM categories ORDER BY sort_order ASC, name ASC'
+      );
+
+      const returnQs = String(req.query.return || '').trim();
+      return res.render('track-detail', {
+        title: rows[0].title,
+        track: rows[0],
+        categories: cats,
+        returnQs,
+      });
+    } catch (e) {
+      console.error(e);
+      req.flash('error', 'Failed to load track');
+      return res.redirect('/admin/tracks');
+    }
+  }
+);
 
 
 /**
@@ -2085,8 +1846,9 @@ router.post(
     } catch (e) {
       console.error(e);
       req.flash('error', 'Failed to update track');
+      return res.redirect(trackActionRedirect(req, id));
     }
-    res.redirect(`/admin/tracks?category_id=${catId}`);
+    res.redirect(trackActionRedirect(req, id));
   }
 );
 
@@ -2104,12 +1866,13 @@ router.post(
 
       await req.db.query('DELETE FROM tracks WHERE id=:id', { id });
       req.flash('success', 'Track deleted');
-
-      return res.redirect(catId ? `/admin/tracks?category_id=${catId}` : '/admin/tracks');
+      const ret = String(req.body.return || '').trim();
+      if (ret && ret !== 'detail' && ret !== 'list') return res.redirect(`/admin/tracks?${ret}`);
+      return res.redirect('/admin/tracks');
     } catch (e) {
       console.error(e);
       req.flash('error', 'Failed to delete track');
-      res.redirect('/admin/tracks');
+      return res.redirect(trackActionRedirect(req, id));
     }
   }
 );
@@ -2118,6 +1881,29 @@ router.post(
 
 
 // -------------------- MASTER CREATION (CODES) --------------------
+
+const MASTER_CODES_JOIN_SQL = `
+  LEFT JOIN users u1 ON u1.id = c.assigned_user_id
+  LEFT JOIN users u2
+    ON u2.id = CAST(c.assigned_member AS UNSIGNED)
+   AND c.assigned_member REGEXP '^[0-9]+$'
+`;
+
+function countMasterActiveFilters(filters) {
+  let n = 0;
+  if (String(filters.q || '').trim()) n++;
+  if (filters.status && filters.status !== 'all') n++;
+  if (filters.valid && filters.valid !== 'all') n++;
+  if (filters.limit && Number(filters.limit) !== 20) n++;
+  return n;
+}
+
+function masterActionRedirect(req, id) {
+  const ret = String(req.body.return || '').trim();
+  if (ret === 'detail') return `/admin/masters/${id}`;
+  if (ret === 'list' || !ret) return '/admin/masters';
+  return `/admin/masters?${ret}`;
+}
 // NOTE: We are NOT using `crypto`.
 // We use bcrypt salt + timestamp + Math.random to generate a readable code.
 
@@ -2204,12 +1990,7 @@ router.get(
 
     try {
       // Dropdown users (for searchable dropdown)
-      const [users] = await req.db.query(`
-        SELECT id, name, email
-        FROM users
-        ORDER BY created_at DESC
-        LIMIT 5000
-      `);
+      const users = [];
 
       /**
        * IMPORTANT JOIN LOGIC:
@@ -2218,12 +1999,7 @@ router.get(
        *
        * We use REGEXP to ensure assigned_member is numeric before casting.
        */
-      const joinSql = `
-        LEFT JOIN users u1 ON u1.id = c.assigned_user_id
-        LEFT JOIN users u2
-          ON u2.id = CAST(c.assigned_member AS UNSIGNED)
-         AND c.assigned_member REGEXP '^[0-9]+$'
-      `;
+      const joinSql = MASTER_CODES_JOIN_SQL;
 
       // total count
       const [[{ total }]] = await req.db.query(
@@ -2257,12 +2033,15 @@ router.get(
         { ...whereParams, limit, offset }
       );
 
+      const filters = { q, status, valid, limit: String(limit) };
       return res.render('masters', {
-        title: 'Master Creation',
+        title: 'Master codes',
         codes: rows,
         users,
         pagination: { page, limit, total },
-        filters: { q, status, valid }
+        filters,
+        activeFilterCount: countMasterActiveFilters(filters),
+        datasetEmpty: Number(total) === 0 && !where.length,
       });
     } catch (e) {
       console.error(e);
@@ -2279,13 +2058,57 @@ router.get(
         users = u;
       } catch {}
 
+      const filters = { q: '', status: 'all', valid: 'all', limit: '20' };
       return res.render('masters', {
-        title: 'Master Creation',
+        title: 'Master codes',
         codes: [],
         users,
         pagination: { page: 1, limit: 20, total: 0 },
-        filters: { q: '', status: 'all', valid: 'all' }
+        filters,
+        activeFilterCount: countMasterActiveFilters(filters),
+        datasetEmpty: false,
       });
+    }
+  }
+);
+
+router.get(
+  '/masters/:id',
+  requireAuth,
+  requireRole(['super', 'manager']),
+  param('id').isInt(),
+  async (req, res) => {
+    const id = Number(req.params.id);
+    try {
+      const [rows] = await req.db.query(
+        `
+        SELECT
+          c.*,
+          COALESCE(u1.id, u2.id)     AS member_user_id,
+          COALESCE(u1.name, u2.name) AS member_user_name,
+          COALESCE(u1.email, u2.email) AS member_user_email,
+          (SELECT COUNT(*) FROM master_code_redemptions r WHERE r.master_code_id = c.id) AS redeemed_count
+        FROM master_codes c
+        ${MASTER_CODES_JOIN_SQL}
+        WHERE c.id = :id
+        LIMIT 1
+        `,
+        { id }
+      );
+      if (!rows[0]) {
+        req.flash('error', 'Master code not found');
+        return res.redirect('/admin/masters');
+      }
+      const returnQs = String(req.query.return || '').trim();
+      return res.render('master-detail', {
+        title: 'Master code',
+        code: rows[0],
+        returnQs,
+      });
+    } catch (e) {
+      console.error(e);
+      req.flash('error', 'Failed to load master code');
+      return res.redirect('/admin/masters');
     }
   }
 );
@@ -2386,11 +2209,11 @@ router.post(
       );
 
       req.flash('success', `Code is now ${next}`);
-      return res.redirect('/admin/masters');
+      return res.redirect(masterActionRedirect(req, id));
     } catch (e) {
       console.error(e);
       req.flash('error', 'Failed to update code status');
-      return res.redirect('/admin/masters');
+      return res.redirect(masterActionRedirect(req, id));
     }
   }
 );
@@ -2406,6 +2229,8 @@ router.post(
     try {
       await req.db.query('DELETE FROM master_codes WHERE id=:id', { id });
       req.flash('success', 'Master code deleted');
+      const ret = String(req.body.return || '').trim();
+      if (ret && ret !== 'detail' && ret !== 'list') return res.redirect(`/admin/masters?${ret}`);
       return res.redirect('/admin/masters');
     } catch (e) {
       console.error(e);
@@ -2415,5 +2240,14 @@ router.post(
   }
 );
 
+router.use(require('./admin/search'));
+router.use(require('./admin/reports'));
+router.use(require('./admin/subscriptions'));
+router.use(require('./admin/staff'));
+router.use(require('./admin/audit'));
+router.use(require('./admin/details'));
+
+router.use('/blogs', require('./admin/blogs'));
+router.use('/blog', require('./admin/blog'));
 
 module.exports = router

@@ -1,0 +1,230 @@
+<%
+  const f = filters || {};
+  const r = ranges || {};
+  const st = stats || {};
+  const meta = chartMeta || {};
+  const reportTab = (typeof tab !== 'undefined' && tab) ? tab : (f.tab || 'overview');
+  const categoryList = categoryOptions || [];
+  const trackList = trackOptions || [];
+  const presetLabels = {
+    today: 'Today', yesterday: 'Yesterday', '7d': 'Last 7 days', '30d': 'Last 30 days',
+    '90d': 'Last 90 days', this_month: 'This month', last_month: 'Last month', custom: 'Custom range',
+  };
+  const periodLabel = presetLabels[f.preset] || 'Custom range';
+  const qsBase = (extra) => {
+    const p = new URLSearchParams();
+    if (f.preset) p.set('preset', f.preset);
+    if (f.preset === 'custom') { if (f.from) p.set('from', f.from); if (f.to) p.set('to', f.to); }
+    if (f.track) p.set('track', f.track);
+    if (f.sub_status && f.sub_status !== 'all') p.set('sub_status', f.sub_status);
+    if (f.tx_status) p.set('tx_status', f.tx_status);
+    if (f.method) p.set('method', f.method);
+    if (f.category_id) p.set('category_id', f.category_id);
+    if (f.granularity && f.granularity_set === '1') {
+      p.set('granularity', f.granularity);
+      p.set('granularity_set', '1');
+    }
+    if (f.compare && f.compare !== 'prev_period') p.set('compare', f.compare);
+    if (reportTab) p.set('tab', reportTab);
+    if (extra) Object.keys(extra).forEach((k) => p.set(k, extra[k]));
+    return p.toString() ? ('?' + p.toString()) : '';
+  };
+  const qsTab = (nextTab, extra) => {
+    const p = new URLSearchParams(qsBase(extra).replace(/^\?/, ''));
+    p.set('tab', nextTab);
+    return '?' + p.toString();
+  };
+  const qsCsv = (exportType) => {
+    const q = qsBase().replace(/^\?/, '') + '&export=' + exportType;
+    return q;
+  };
+  const reportTabs = [
+    ['overview', 'Overview'],
+    ['revenue', 'Revenue'],
+    ['subscriptions', 'Subscriptions'],
+    ['members', 'Members'],
+    ['tracks', 'Tracks'],
+    ['transactions', 'Transactions'],
+  ];
+  const reportIncludeLocals = {
+    st, meta, f, r, qsBase, qsTab, qsCsv, reportTab,
+    periodBreakdown: typeof periodBreakdown !== 'undefined' ? periodBreakdown : [],
+    revenueByTrackAvailable: typeof revenueByTrackAvailable !== 'undefined' ? revenueByTrackAvailable : false,
+    revenueByTrack: typeof revenueByTrack !== 'undefined' ? revenueByTrack : [],
+    topTracks: typeof topTracks !== 'undefined' ? topTracks : [],
+  };
+%>
+<div class="page" data-reports>
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Reports &amp; Analytics</h1>
+      <span class="pageHeader__period">
+        <%= periodLabel %> · <span class="mono"><%= r.from %></span>–<span class="mono"><%= r.to %></span><% if (r.compareLabel && f.compare !== 'none') { %> · <%= r.compareLabel %><% } %><% if (activeFilterCount > 0) { %> · <span class="filterChip filterChip--inline"><%= activeFilterCount %></span><% } %>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <form class="dashPreset" method="get" action="/admin/reports" id="reportsPresetForm">
+        <input type="hidden" name="tab" value="<%= reportTab %>">
+        <% ['track','sub_status','tx_status','method','category_id','compare'].forEach((key) => {
+          if (f[key]) { %><input type="hidden" name="<%= key %>" value="<%= f[key] %>"><% }
+        }) %>
+        <select class="select select--compact" name="preset" id="reportsPresetSelect" aria-label="Date period">
+          <% if (f.preset === 'custom') { %><option value="custom" selected disabled>Custom range</option><% } %>
+          <option value="today" <%= f.preset==='today'?'selected':'' %>>Today</option>
+          <option value="yesterday" <%= f.preset==='yesterday'?'selected':'' %>>Yesterday</option>
+          <option value="7d" <%= f.preset==='7d'?'selected':'' %>>Last 7 days</option>
+          <option value="30d" <%= !f.preset||f.preset==='30d'?'selected':'' %>>Last 30 days</option>
+          <option value="90d" <%= f.preset==='90d'?'selected':'' %>>Last 90 days</option>
+          <option value="this_month" <%= f.preset==='this_month'?'selected':'' %>>This month</option>
+          <option value="last_month" <%= f.preset==='last_month'?'selected':'' %>>Last month</option>
+        </select>
+      </form>
+      <form method="get" action="/admin/reports" class="dashPreset">
+        <input type="hidden" name="tab" value="<%= reportTab %>">
+        <% ['preset','from','to','track','sub_status','tx_status','method','category_id'].forEach((key) => {
+          if (f.preset !== 'custom' && (key === 'from' || key === 'to')) return;
+          if (f[key]) { %><input type="hidden" name="<%= key %>" value="<%= f[key] %>"><% }
+        }) %>
+        <select class="select select--compact" name="compare" aria-label="Compare period" onchange="this.form.submit()">
+          <option value="prev_period" <%= (f.compare||'prev_period')==='prev_period'?'selected':'' %>>Previous period</option>
+          <option value="prev_month" <%= f.compare==='prev_month'?'selected':'' %>>Previous month</option>
+          <option value="prev_year" <%= f.compare==='prev_year'?'selected':'' %>>Previous year</option>
+          <option value="none" <%= f.compare==='none'?'selected':'' %>>No comparison</option>
+        </select>
+      </form>
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-open="reportFilters">Filters<% if (activeFilterCount > 0) { %> (<%= activeFilterCount %>)<% } %></button>
+      <details class="exportMenu">
+        <summary class="btn btn--gold btn--mini">Export</summary>
+        <div class="exportMenu__panel">
+          <a href="/admin/reports.csv?<%= qsCsv('summary') %>">Summary CSV</a>
+          <a href="/admin/reports.csv?<%= qsCsv('breakdown') %>">Breakdown CSV</a>
+          <a href="/admin/reports.csv?<%= qsCsv('transactions') %>">Transactions CSV</a>
+          <span class="exportMenu__disabled" title="Not available">Excel (soon)</span>
+          <span class="exportMenu__disabled" title="Not available">PDF (soon)</span>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <nav class="reportTabs" aria-label="Report categories">
+    <% reportTabs.forEach(([id, label]) => { %>
+      <a class="reportTabs__link<%= reportTab===id?' is-active':'' %>" href="/admin/reports<%= qsTab(id) %>"><%= label %></a>
+    <% }) %>
+  </nav>
+
+  <form id="reportFiltersForm" method="get" action="/admin/reports">
+    <input type="hidden" name="tab" value="<%= reportTab %>">
+    <div class="filterDrawer" id="reportFilters" aria-hidden="true">
+      <div class="filterDrawer__backdrop" data-filter-close></div>
+      <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-modal="true" aria-labelledby="reportFiltersTitle">
+        <div class="filterDrawer__head">
+          <h2 id="reportFiltersTitle" class="filterDrawer__title">Filters</h2>
+          <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+        </div>
+        <div class="filterDrawer__body filterDrawer__body--compact">
+          <div class="filterDrawer__stack">
+            <div class="filterDrawer__section">
+              <h3 class="filterDrawer__sectionTitle">Date range</h3>
+              <input type="hidden" name="preset" value="custom">
+              <div class="fieldGrid fieldGrid--date">
+                <label class="field">
+                  <span class="field__label" for="repFrom">From</span>
+                  <input class="input input--compact" type="date" id="repFrom" name="from" value="<%= f.from %>">
+                </label>
+                <label class="field">
+                  <span class="field__label" for="repTo">To</span>
+                  <input class="input input--compact" type="date" id="repTo" name="to" value="<%= f.to %>">
+                </label>
+              </div>
+            </div>
+            <div class="filterDrawer__section">
+              <h3 class="filterDrawer__sectionTitle">Business</h3>
+              <div class="filterDrawer__grid">
+                <label class="field">
+                  <span class="field__label" for="repTrack">Track</span>
+                  <select class="select select--compact" id="repTrack" name="track">
+                    <option value="">All</option>
+                    <% trackList.forEach((t) => { %><option value="<%= t %>" <%= String(f.track)===String(t)?'selected':'' %>><%= t %></option><% }) %>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label" for="repCat">Category</span>
+                  <select class="select select--compact" id="repCat" name="category_id">
+                    <option value="">All</option>
+                    <% categoryList.forEach((c) => { %><option value="<%= c.id %>" <%= String(f.category_id)===String(c.id)?'selected':'' %>><%= c.name %></option><% }) %>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label" for="repSub">Subscriptions</span>
+                  <select class="select select--compact" id="repSub" name="sub_status">
+                    <% ['all','active','expired','cancelled'].forEach((s) => { %>
+                      <option value="<%= s %>" <%= (f.sub_status||'all')===s?'selected':'' %>><%= s === 'all' ? 'All' : s %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label" for="repTx">Transactions</span>
+                  <select class="select select--compact" id="repTx" name="tx_status">
+                    <% ['captured','all','created','failed','refunded','in_transit'].forEach((s) => { %>
+                      <option value="<%= s %>" <%= (f.tx_status||'captured')===s?'selected':'' %>><%= s %></option>
+                    <% }) %>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span class="field__label" for="repMethod">Payment method</span>
+                <select class="select select--compact" id="repMethod" name="method">
+                  <option value="">All</option>
+                  <% ['card','upi','netbanking','wallet'].forEach((m) => { %>
+                    <option value="<%= m %>" <%= f.method===m?'selected':'' %>><%= m %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <% if (f.compare) { %><input type="hidden" name="compare" value="<%= f.compare %>"><% } %>
+            </div>
+          </div>
+        </div>
+        <div class="filterDrawer__foot filterDrawer__foot--compact">
+          <a class="btn btn--ghost btn--mini" href="/admin/reports?preset=30d&tab=<%= reportTab %>">Reset</a>
+          <button type="submit" class="btn btn--primary btn--mini">Apply</button>
+        </div>
+      </aside>
+    </div>
+  </form>
+
+  <div class="reportTabStack">
+    <% if (reportTab === 'overview') { %>
+      <%- include('partials/admin/reports-overview', reportIncludeLocals) %>
+    <% } else if (reportTab === 'revenue') { %>
+      <%- include('partials/admin/reports-tab-revenue', reportIncludeLocals) %>
+    <% } else if (reportTab === 'subscriptions') { %>
+      <%- include('partials/admin/reports-tab-subscriptions', reportIncludeLocals) %>
+    <% } else if (reportTab === 'members') { %>
+      <%- include('partials/admin/reports-tab-members', reportIncludeLocals) %>
+    <% } else if (reportTab === 'tracks') { %>
+      <%- include('partials/admin/reports-tab-tracks', reportIncludeLocals) %>
+    <% } else if (reportTab === 'transactions') { %>
+      <%- include('partials/admin/reports-tab-transactions', reportIncludeLocals) %>
+    <% } %>
+  </div>
+</div>
+
+<script id="reportsChartPayload" type="application/json">
+<%- JSON.stringify({
+  salesSeries: salesSeries || [],
+  subsSeries: subsSeries || [],
+  memberSeries: memberSeries || [],
+  txStatusBreakdown: txStatusBreakdown || [],
+  topTracks: topTracks || [],
+  revenueByTrack: revenueByTrack || [],
+  revenueByTrackAvailable: revenueByTrackAvailable || false,
+  activeTracksByTrack: typeof activeTracksByTrack !== 'undefined' ? activeTracksByTrack : [],
+  periodBreakdown: periodBreakdown || [],
+  granularity: meta.granularity || 'daily',
+  stats: st,
+  chartMeta: meta,
+  tab: reportTab
+}) %>
+</script>
+<script src="/js/admin-charts.js?v=2" defer></script>
+<script src="/js/admin-reports.js?v=5" defer></script>

@@ -1,0 +1,136 @@
+<%
+  const rows = codes || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0 };
+  const totalPages = Math.max(1, Math.ceil((pg.total || 0) / (pg.limit || 20)));
+  const hasRows = rows.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/masters/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const displayMemberName = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return '—';
+    return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+  const statusBadge = (s) => (String(s).toLowerCase() === 'active' ? 'success' : 'danger');
+%>
+<div class="panel__body masterTableBody<%= hasRows ? '' : ' panel__body--empty panel__body--emptyMaster' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty dashEmpty--master" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">✦</span>
+      <% if (datasetEmpty) { %>
+        <h2 class="dashEmpty__title">No master codes yet</h2>
+        <p class="dashEmpty__desc">Generate a code and assign it to a master member. Redemptions unlock premium access until expiry.</p>
+        <% if (canWrite) { %>
+          <div class="dashEmpty__actions">
+            <button type="button" class="btn btn--primary btn--mini" data-filter-open="masterCreateDrawer">Create master code</button>
+          </div>
+        <% } %>
+      <% } else { %>
+        <h2 class="dashEmpty__title">No matching codes</h2>
+        <p class="dashEmpty__desc">
+          <% if (typeof activeFilterCount === 'number' && activeFilterCount > 0) { %>
+            <%= activeFilterCount %> filter<%= activeFilterCount === 1 ? '' : 's' %> applied.
+          <% } else { %>
+            Try different status or validity filters.
+          <% } %>
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/masters">Clear filters</a>
+          <button type="button" class="btn btn--primary btn--mini" data-filter-open="masterFilters">Adjust filters</button>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="masterTableWrap">
+      <table class="table table--dashboard table--compact table--masterList" id="masterTable">
+        <thead>
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Member</th>
+            <th scope="col">Valid from</th>
+            <th scope="col">Valid to</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="col-numeric">Redeemed</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((c) => { %>
+            <tr data-master-row="<%= c.id %>">
+              <td class="col-code">
+                <a class="mono masterCodeLink" href="<%= detailHref(c.id) %>" title="<%= c.code %>"><%= c.code %></a>
+              </td>
+              <td class="col-member">
+                <span class="masterMemberName"><%= displayMemberName(c.member_user_name) %></span>
+              </td>
+              <td class="mono col-date"><%= fmt(c.valid_from) %></td>
+              <td class="mono col-date"><%= fmt(c.valid_to) %></td>
+              <td>
+                <span class="statusBadge statusBadge--<%= statusBadge(c.status) %>"><%= c.status %></span>
+              </td>
+              <td class="mono col-numeric"><%= c.redeemed_count || 0 %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for code <%= c.id %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(c.id) %>">View</a></li>
+                      <li>
+                        <button type="button" class="rowMenu__btn" data-copy-code="<%= c.code %>">Copy code</button>
+                      </li>
+                      <% if (canWrite) { %>
+                        <li>
+                          <form method="post" action="/admin/masters/<%= c.id %>/toggle" class="rowMenu__form">
+                            <%- include('../csrf-field') %>
+                            <input type="hidden" name="return" value="<%= listReturnQs || '' %>">
+                            <button type="submit" class="rowMenu__btn"><%= c.status==='active' ? 'Disable' : 'Enable' %></button>
+                          </form>
+                        </li>
+                        <% if (isSuper) { %>
+                          <li>
+                            <form method="post" action="/admin/masters/<%= c.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Delete this master code and its redemption logs?');">
+                              <%- include('../csrf-field') %>
+                              <input type="hidden" name="return" value="<%= listReturnQs || '' %>">
+                              <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Master codes pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/masters<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= totalPages %></span>
+          <% if (pg.page < totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/masters<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

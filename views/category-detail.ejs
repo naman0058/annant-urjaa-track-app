@@ -1,0 +1,103 @@
+<%
+  const c = category || {};
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const thumbSrc = (p) => {
+    if (!p) return '';
+    if (String(p).startsWith('http')) return p;
+    return '/' + String(p).replace(/^\/+/, '');
+  };
+  const backHref = typeof returnQs === 'string' && returnQs ? ('/admin/categories?' + returnQs) : '/admin/categories';
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const isSuper = typeof session !== 'undefined' && session.admin && session.admin.role === 'super';
+  const src = thumbSrc(c.thumbnail_path);
+  const trows = tracks || [];
+%>
+<div class="page" data-categories data-cat-detail data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title"><%= c.name %></h1>
+      <span class="pageHeader__period">
+        <span class="mono"><%= c.slug || '—' %></span>
+        · Order <span class="mono"><%= c.sort_order != null ? c.sort_order : '—' %></span>
+        · <span class="mono"><%= c.track_count || 0 %> tracks</span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to list</a>
+      <a class="btn btn--ghost btn--mini" href="/admin/tracks?category_id=<%= c.id %>">View tracks</a>
+      <% if (canWrite) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-cat-edit
+          data-id="<%= c.id %>"
+          data-name="<%= (c.name || '').replace(/"/g,'&quot;') %>"
+          data-description="<%= (c.description || '').replace(/"/g,'&quot;') %>"
+          data-thumb="<%= src.replace(/"/g,'&quot;') %>"
+          data-return="detail"
+        >Edit</button>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <div class="catDetailHero">
+        <% if (src) { %>
+          <img class="catDetailThumb" src="<%= src %>" alt="">
+        <% } else { %>
+          <div class="catDetailThumb catDetailThumb--empty" aria-hidden="true">No image</div>
+        <% } %>
+        <dl class="detailList detailList--grid catDetailList">
+          <div><dt>Name</dt><dd><%= c.name %></dd></div>
+          <div><dt>Slug</dt><dd class="mono"><%= c.slug || '—' %></dd></div>
+          <div><dt>Description</dt><dd><%= c.description || '—' %></dd></div>
+          <div><dt>Sort order</dt><dd class="mono"><%= c.sort_order != null ? c.sort_order : '—' %></dd></div>
+          <div><dt>Created</dt><dd class="mono"><%= fmt(c.created_at) %></dd></div>
+        </dl>
+      </div>
+      <% if (isSuper) { %>
+        <form method="post" action="/admin/categories/<%= c.id %>/delete" class="catDetailDelete" onsubmit="return confirm('Delete this category? Only if no tracks are linked.');">
+          <%- include('partials/csrf-field') %>
+          <input type="hidden" name="return" value="list">
+          <button type="submit" class="btn btn--danger btn--mini">Delete permanently</button>
+        </form>
+      <% } %>
+    </div>
+  </section>
+
+  <% if (trows.length) { %>
+    <section class="panel panel--compact">
+      <div class="panel__head panel__head--split">
+        <h3 class="panel__title">Tracks in this category</h3>
+        <a class="btn btn--ghost btn--mini" href="/admin/tracks?category_id=<%= c.id %>">Manage all</a>
+      </div>
+      <div class="panel__body panel__body--tight">
+        <table class="table table--dashboard table--compact">
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="col-numeric">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% trows.forEach((t) => { %>
+              <tr>
+                <td><%= t.title %></td>
+                <td><span class="statusBadge statusBadge--<%= t.status === 'active' ? 'success' : 'danger' %>"><%= t.status %></span></td>
+                <td class="mono col-numeric"><%= t.sort_order != null ? t.sort_order : '—' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (canWrite) { %>
+    <%- include('partials/admin/categories-form-drawer', { formDrawerMode: 'edit', listReturnQs: typeof returnQs === 'string' ? returnQs : '' }) %>
+  <% } %>
+</div>
+<script src="/js/admin-categories.js?v=1" defer></script>

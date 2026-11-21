@@ -1,0 +1,88 @@
+<%
+  const m = member || {};
+  const fmtDateTime = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 16).replace('T', ' '); } catch { return '—'; }
+  };
+  const backHref = returnQs ? ('/admin/staff?' + returnQs) : '/admin/staff';
+  const manage = typeof canManageStaff !== 'undefined' ? canManageStaff : false;
+  const roleBadge = (r) => {
+    const map = { super: 'warning', manager: 'success', viewer: 'info' };
+    return map[String(r).toLowerCase()] || 'info';
+  };
+%>
+<div class="page" data-staff data-staff-detail data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title"><%= m.name %></h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= roleBadge(m.role) %>"><%= m.role %></span>
+        · <% if (m.is_active) { %><span class="statusBadge statusBadge--success">Active</span><% } else { %><span class="statusBadge statusBadge--danger">Inactive</span><% } %>
+        · <span class="mono">#<%= m.id %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to staff</a>
+      <% if (manage) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-staff-edit
+          data-id="<%= m.id %>"
+          data-name="<%= (m.name||'').replace(/"/g,'&quot;') %>"
+          data-email="<%= (m.email||'').replace(/"/g,'&quot;') %>"
+          data-role="<%= m.role %>"
+          data-active="<%= m.is_active ? '1' : '0' %>"
+        >Edit</button>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <dl class="detailList detailList--grid staffDetailList">
+        <div><dt>Name</dt><dd><%= m.name %></dd></div>
+        <div><dt>Email</dt><dd class="mono"><%= m.email %></dd></div>
+        <div><dt>Role</dt><dd><span class="statusBadge statusBadge--<%= roleBadge(m.role) %>"><%= m.role %></span></dd></div>
+        <div><dt>Status</dt><dd><%= m.is_active ? 'Active' : 'Inactive' %></dd></div>
+        <div><dt>Created</dt><dd class="mono"><%= fmtDateTime(m.created_at) %></dd></div>
+        <div><dt>Staff ID</dt><dd class="mono">#<%= m.id %></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <% if ((auditLogs || []).length) { %>
+    <section class="panel panel--compact">
+      <div class="panel__head panel__head--split">
+        <h3 class="panel__title">Recent audit</h3>
+        <span class="cellMuted mono"><%= auditLogs.length %></span>
+      </div>
+      <div class="panel__body staffTableBody panel__body--tight">
+        <div class="staffTableWrap">
+          <table class="table table--dashboard table--compact table--staffList">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>By</th>
+                <th class="col-date">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% auditLogs.forEach((log) => { %>
+                <tr>
+                  <td class="mono"><%= log.action %></td>
+                  <td class="cellMuted"><%= log.actor_email || '—' %></td>
+                  <td class="mono col-date"><%= fmtDateTime(log.created_at) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (manage) { %>
+    <%- include('partials/admin/staff-form-drawer', { formDrawerMode: 'edit' }) %>
+    <input type="hidden" id="staffListReturnQs" value="<%= returnQs || '' %>">
+  <% } %>
+</div>
+<script src="/js/admin-staff.js?v=1" defer></script>

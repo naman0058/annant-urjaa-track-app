@@ -1,0 +1,168 @@
+<%- include('header.ejs') %>
+<link href="/css/blog-article.css?v=3" rel="stylesheet">
+<link href="/css/blog-public.css?v=6" rel="stylesheet">
+
+<%
+  const hero = post.heroImage || null;
+  const heroAlt = post.featured_image_alt || post.title;
+%>
+
+<div class="blog-article-page" data-blog-article data-share-url="<%= shareUrl %>">
+  <header class="blog-article-hero">
+    <div class="blog-article-hero__inner">
+      <nav class="blog-article-hero__breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="/blog">Blog</a>
+        <% if (post.category_slug && post.category_name) { %>
+          <span aria-hidden="true">/</span>
+          <a href="/blog/category/<%= post.category_slug %>"><%= post.category_name %></a>
+        <% } %>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page"><%= post.title %></span>
+      </nav>
+
+      <h1 class="blog-article-hero__title"><%= post.title %></h1>
+
+      <% if (post.excerpt) { %>
+        <p class="blog-article-hero__excerpt"><%= post.excerpt %></p>
+      <% } %>
+
+      <div class="blog-article-hero__meta">
+        <% if (post.category_name && post.category_slug) { %>
+          <span class="blog-article-hero__chip blog-article-hero__chip--accent">
+            <a href="/blog/category/<%= post.category_slug %>"><%= post.category_name %></a>
+          </span>
+        <% } %>
+        <% if (post.published_at) { %>
+          <span class="blog-article-hero__chip">
+            <time datetime="<%= new Date(post.published_at).toISOString() %>">
+              Published <%= new Date(post.published_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+            </time>
+          </span>
+        <% } %>
+        <% if (showUpdated) { %>
+          <span class="blog-article-hero__chip">
+            <time datetime="<%= new Date(post.updated_at).toISOString() %>">
+              Updated <%= new Date(post.updated_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+            </time>
+          </span>
+        <% } %>
+      </div>
+    </div>
+
+    <% if (hero && hero.src) { %>
+      <% const heroFigClass = 'blog-article-hero__figure' + (hero.isPlaceholder ? ' is-placeholder' : ''); %>
+      <div class="blog-article-hero__media-wrap">
+        <figure class="<%= heroFigClass %>">
+          <%- include('partials/blog-featured-image', {
+            responsive: hero,
+            alt: heroAlt,
+            className: 'blog-article-hero__img',
+            style: '',
+            lazyLoad: false
+          }) %>
+        </figure>
+      </div>
+    <% } %>
+  </header>
+
+  <%
+    const showToc = toc && toc.length > 1;
+  %>
+  <div class="blog-article-body">
+    <div class="blog-article-grid<%= showToc ? '' : ' blog-article-grid--full' %>">
+      <% if (showToc) { %>
+      <aside class="blog-article-aside" aria-label="Table of contents">
+          <nav class="blog-article-panel blog-article-toc" aria-label="Table of contents">
+            <p class="blog-article-panel__title">On this page</p>
+            <ol>
+              <% toc.forEach(function(item) { %>
+                <li data-level="<%= item.level %>">
+                  <a href="#<%= item.id %>"><%= item.text %></a>
+                </li>
+              <% }) %>
+            </ol>
+          </nav>
+      </aside>
+      <% } %>
+
+      <main class="blog-article-main">
+        <div class="blog-article-content">
+          <%- post.content_html %>
+        </div>
+
+        <% if (faqs && faqs.length) { %>
+          <section class="blog-article-faqs" aria-labelledby="blog-faq-heading">
+            <h2 id="blog-faq-heading" class="blog-article-faqs__heading">Frequently asked questions</h2>
+            <% faqs.forEach(function(f, i) { %>
+              <details class="blog-article-faq">
+                <summary><%= f.question || f.q %></summary>
+                <div class="blog-article-faq__body"><%= f.answer || f.a %></div>
+              </details>
+            <% }) %>
+          </section>
+        <% } %>
+
+        <% if (internalLinks && internalLinks.length) { %>
+          <nav class="blog-article-links" aria-label="Related on this site">
+            <p class="blog-article-links__title">Explore more on Anannt Urjaa</p>
+            <ul>
+              <% internalLinks.forEach(function(link) { %>
+                <li><a href="<%= link.path %>"><%= link.title %></a></li>
+              <% }) %>
+            </ul>
+          </nav>
+        <% } %>
+
+        <div class="blog-article-share-bar" aria-label="Share article">
+          <span class="blog-article-share-bar__label">Enjoyed this article? Share it</span>
+          <div class="blog-article-share-bar__actions">
+            <button type="button" class="blog-article-share-btn" data-copy-link aria-label="Copy link to clipboard">
+              <i class="fa-solid fa-link" aria-hidden="true"></i>
+              <span class="blog-article-share-btn__text">Copy link</span>
+            </button>
+            <a class="blog-article-share-btn" href="https://twitter.com/intent/tweet?url=<%= encodeURIComponent(shareUrl) %>&text=<%= encodeURIComponent(post.title) %>" target="_blank" rel="noopener noreferrer" aria-label="Share on X">
+              <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
+              <span class="blog-article-share-btn__text">X</span>
+            </a>
+            <a class="blog-article-share-btn" href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(shareUrl) %>" target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook">
+              <i class="fa-brands fa-facebook-f" aria-hidden="true"></i>
+              <span class="blog-article-share-btn__text">Facebook</span>
+            </a>
+            <a class="blog-article-share-btn" href="https://www.linkedin.com/sharing/share-offsite/?url=<%= encodeURIComponent(shareUrl) %>" target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">
+              <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
+              <span class="blog-article-share-btn__text">LinkedIn</span>
+            </a>
+            <a class="blog-article-share-btn" href="mailto:?subject=<%= encodeURIComponent(post.title) %>&body=<%= encodeURIComponent(shareUrl) %>" aria-label="Share by email">
+              <i class="fa-regular fa-envelope" aria-hidden="true"></i>
+              <span class="blog-article-share-btn__text">Email</span>
+            </a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <% if ((related || []).length) { %>
+    <section class="blog-article-related" aria-labelledby="related-articles-heading">
+      <div class="blog-article-related__inner">
+        <div class="blog-article-related__head">
+          <h2 id="related-articles-heading">Related articles</h2>
+          <a href="/blog">View all posts →</a>
+        </div>
+        <div class="row g-4">
+          <% related.forEach(function(p) { %>
+            <%- include('partials/blog-card', { p }) %>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+  <% } %>
+</div>
+
+<% if (jsonLdGraph) { %>
+<script type="application/ld+json"><%- JSON.stringify(jsonLdGraph).replace(/</g, '\\u003c') %></script>
+<% } %>
+<script src="/js/blog-article.js?v=2" defer></script>
+<%- include('footer.ejs') %>

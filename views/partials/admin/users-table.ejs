@@ -1,0 +1,109 @@
+<%
+  const rows = users || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+  const hasRows = rows.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/users/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const displayName = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return '—';
+    return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+  const qsFn = typeof qsBase === 'function' ? qsBase : () => '';
+%>
+<div class="panel__body userTableBody<%= hasRows ? '' : ' panel__body--empty' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+      <p class="dashEmpty__label">
+        <%= datasetEmpty ? 'No users yet.' : 'No matching users.' %>
+      </p>
+      <% if (filteredEmpty) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/users">Clear filters</a>
+      <% } %>
+      <% if (datasetEmpty && canWrite) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-filter-open="userCreateDrawer">Create user</button>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="userTableWrap">
+      <table class="table table--dashboard table--compact table--usersList" id="usersTable">
+        <thead>
+          <tr>
+            <th scope="col">User</th>
+            <th scope="col">Email</th>
+            <th scope="col" class="col-date">Joined</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((u) => { %>
+            <tr data-user-row="<%= u.id %>">
+              <td class="col-member">
+                <a class="userNameLink" href="<%= detailHref(u.id) %>"><%= displayName(u.name) %></a>
+              </td>
+              <td class="mono userEmailCell"><%= u.email %></td>
+              <td class="mono col-date"><%= fmt(u.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for user <%= u.id %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(u.id) %>">View</a></li>
+                      <% if (canWrite) { %>
+                        <li>
+                          <button type="button" class="rowMenu__btn" data-user-edit
+                            data-id="<%= u.id %>"
+                            data-name="<%= (u.name||'').replace(/"/g,'&quot;') %>"
+                            data-email="<%= (u.email||'').replace(/"/g,'&quot;') %>"
+                          >Edit</button>
+                        </li>
+                      <% } %>
+                      <% if (session && session.admin && session.admin.role === 'super') { %>
+                        <li>
+                          <form method="post" action="/admin/users/<%= u.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Delete this user? Linked subscriptions may be affected.');">
+                            <%- include('../csrf-field') %>
+                            <input type="hidden" name="_list_return" value="<%= typeof listReturnQs !== 'undefined' ? listReturnQs : '' %>">
+                            <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete</button>
+                          </form>
+                        </li>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pg.totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Users pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/users<%= qsFn({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page mono"><%= pg.page %> / <%= pg.totalPages %></span>
+          <% if (pg.page < pg.totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/users<%= qsFn({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

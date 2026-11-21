@@ -1,0 +1,30 @@
+'use strict';
+
+/** Mock OpenAI Responses parsed output — used in tests only (no API calls). */
+module.exports = {
+  title: 'PEMF Therapy Basics',
+  slug_suggestion: 'pemf-therapy-basics',
+  subtitle: null,
+  excerpt: 'An overview of PEMF therapy for wellness readers.',
+  content_html: '<h2>Introduction</h2><p>Fact-based overview only.</p>',
+  meta_title: 'PEMF Therapy Basics',
+  meta_description: 'Learn PEMF therapy fundamentals in plain language.',
+  meta_abstract: null,
+  meta_keywords: 'pemf, wellness',
+  focus_keyword: 'pemf therapy',
+  secondary_keywords: 'recovery, wellness',
+  search_intent: 'informational',
+  suggested_category: 'Wellness',
+  suggested_tags: ['pemf', 'wellness'],
+  suggested_image_alt: 'Optional alt when editor uploads later',
+  og_title: 'PEMF Therapy Basics',
+  og_description: 'Learn PEMF therapy fundamentals.',
+  twitter_title: null,
+  twitter_description: null,
+  faqs: [{ question: 'What is PEMF?', answer: 'Pulsed electromagnetic field therapy as described in source.' }],
+  key_takeaways: ['Consult a professional for medical decisions'],
+  internal_link_suggestions: ['pemf-basics'],
+  suggested_external_sources: [],
+  review_warnings: ['Verify medical claims with a clinician'],
+  confidence_notes: 'Conservative rewrite from source.',
+};

@@ -1,0 +1,144 @@
+<%
+  const rows = posts || [];
+  const pg = pagination || { page: 1, limit: 20, total: 0 };
+  const totalPages = Math.max(1, Math.ceil((pg.total || 0) / (pg.limit || 20)));
+  const hasRows = rows.length > 0;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const postHref = (id) => {
+    const base = ba.postDetail ? `/admin/blog/${id}${ret}` : `/admin/blog/${id}/edit`;
+    return base;
+  };
+  const detailHref = (id) => '/admin/blog/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const statusBadge = (s) => {
+    const map = { published: 'success', draft: 'info', review: 'warning', scheduled: 'warning', archived: 'danger', inactive: 'danger' };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+  const imgSrc = (p) => {
+    if (!p) return '';
+    if (String(p).startsWith('http')) return p;
+    return '/' + String(p).replace(/^\/+/, '');
+  };
+%>
+<div class="panel__body blogTableBody<%= hasRows ? '' : ' panel__body--empty panel__body--emptyBlog' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty dashEmpty--blog" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">✦</span>
+      <% if (datasetEmpty) { %>
+        <h2 class="dashEmpty__title">No posts yet</h2>
+        <p class="dashEmpty__desc"><%= (ba.newPost || ba.importCsv) ? 'Create or import content to get started.' : 'Posts will appear here when available.' %></p>
+        <% if (canWrite && (ba.newPost || ba.importCsv)) { %>
+          <div class="dashEmpty__actions">
+            <% if (ba.newPost) { %><a class="btn btn--primary btn--mini" href="/admin/blog/new">New post</a><% } %>
+            <% if (ba.importCsv) { %><a class="btn btn--ghost btn--mini" href="/admin/blog/import">Import CSV</a><% } %>
+          </div>
+        <% } %>
+      <% } else { %>
+        <h2 class="dashEmpty__title">No matching posts</h2>
+        <p class="dashEmpty__desc">
+          <% if (typeof activeFilterCount === 'number' && activeFilterCount > 0) { %>
+            <%= activeFilterCount %> filter<%= activeFilterCount === 1 ? '' : 's' %> applied.
+          <% } else { %>
+            Try a different search or status.
+          <% } %>
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/blog">Clear filters</a>
+          <button type="button" class="btn btn--primary btn--mini" data-filter-open="blogFilters">Adjust filters</button>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="blogTableWrap">
+      <table class="table table--dashboard table--compact table--blogList" id="blogTable">
+        <thead>
+          <tr>
+            <th scope="col" class="col-thumb"><span class="sr-only">Image</span></th>
+            <th scope="col">Post</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="col-numeric">SEO</th>
+            <th scope="col" class="col-date">Updated</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((p) => {
+            const src = imgSrc(p.featured_image);
+          %>
+            <tr data-blog-row="<%= p.id %>">
+              <td class="col-thumb">
+                <% if (src) { %>
+                  <img class="blogThumb" src="<%= src %>" alt="" width="36" height="36" loading="lazy">
+                <% } else { %>
+                  <span class="blogThumb blogThumb--empty" aria-hidden="true">—</span>
+                <% } %>
+              </td>
+              <td class="col-name">
+                <a class="blogTitleLink" href="<%= postHref(p.id) %>" title="<%= p.title %>"><%= p.title %></a>
+                <span class="cellMuted mono blogSlugLine">/blog/<%= p.slug %></span>
+              </td>
+              <td>
+                <span class="statusBadge statusBadge--<%= statusBadge(p.status) %>"><%= p.status %></span>
+                <% if (p.ai_rewritten) { %><span class="blogFlag">AI</span><% } %>
+              </td>
+              <td class="mono col-numeric"><%= p.meta_title ? '✓' : '—' %></td>
+              <td class="mono col-date"><%= fmt(p.updated_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for <%= p.title %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <% if (ba.postDetail) { %><li><a href="<%= detailHref(p.id) %>">View</a></li><% } %>
+                      <% if (canWrite) { %>
+                        <li><a href="/admin/blog/<%= p.id %>/edit">Edit</a></li>
+                        <% if (ba.ai) { %><li><a href="/admin/blog/<%= p.id %>/ai/preview">AI preview</a></li><% } %>
+                        <% if (p.status === 'published') { %>
+                          <li><a href="/blog/<%= p.slug %>" target="_blank" rel="noopener">Open site</a></li>
+                        <% } %>
+                        <% if (ba.trash) { %>
+                          <li>
+                            <form method="post" action="/admin/blog/<%= p.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Move this post to trash?');">
+                              <%- include('../csrf-field') %>
+                              <input type="hidden" name="return" value="<%= listReturnQs || '' %>">
+                              <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Trash</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Blog pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/blog<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= totalPages %></span>
+          <% if (pg.page < totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/blog<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

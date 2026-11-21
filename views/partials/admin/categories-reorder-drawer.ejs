@@ -1,0 +1,31 @@
+<%
+  const items = orderRows || [];
+%>
+<div class="filterDrawer" id="catReorderDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact catReorderPanel" role="dialog" aria-labelledby="catReorderTitle">
+    <div class="filterDrawer__head">
+      <h2 id="catReorderTitle" class="filterDrawer__title">Reorder categories</h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact">
+      <p class="filterDrawer__hint">Drag to set catalog order. Applies across the app and API.</p>
+      <ul class="catReorderList" id="catReorderList" aria-label="Category order">
+        <% items.forEach((c) => { %>
+          <li class="catReorderItem" data-id="<%= c.id %>">
+            <button type="button" class="catReorderHandle" aria-label="Drag">⋮⋮</button>
+            <span class="catReorderName"><%= c.name %></span>
+            <span class="catReorderOrder mono"><%= c.sort_order || '—' %></span>
+          </li>
+        <% }) %>
+      </ul>
+      <% if (!items.length) { %>
+        <p class="cellMuted">No categories to reorder.</p>
+      <% } %>
+    </div>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="button" class="btn btn--primary btn--mini" id="catReorderSave" <%= items.length ? '' : 'disabled' %>>Save order</button>
+    </div>
+  </aside>
+</div>

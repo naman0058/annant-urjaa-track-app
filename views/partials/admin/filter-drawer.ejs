@@ -1,0 +1,20 @@
+<%
+  const drawerId = typeof filterDrawerId !== 'undefined' ? filterDrawerId : 'filterDrawer';
+  const drawerTitle = typeof filterDrawerTitle !== 'undefined' ? filterDrawerTitle : 'Filters';
+%>
+<div class="filterDrawer" id="<%= drawerId %>" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= drawerTitle %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close filters">×</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact">
+      <%- typeof filterDrawerBody !== 'undefined' ? filterDrawerBody : '' %>
+    </div>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <a class="btn btn--ghost btn--mini" href="<%= typeof filterResetHref !== 'undefined' ? filterResetHref : '#' %>">Reset</a>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= typeof filterFormId !== 'undefined' ? filterFormId : '' %>">Apply</button>
+    </div>
+  </aside>
+</div>

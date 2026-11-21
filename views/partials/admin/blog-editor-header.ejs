@@ -1,0 +1,41 @@
+<%
+  const p = post || {};
+  const isEdit = mode === 'edit' && p.id;
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const backHref = isEdit ? (ba.postDetail ? '/admin/blog/' + p.id : '/admin/blog') : '/admin/blog';
+  const statusBadge = (s) => {
+    const map = { published: 'success', draft: 'info', review: 'warning', scheduled: 'warning', archived: 'danger' };
+    return map[String(s || 'draft').toLowerCase()] || 'info';
+  };
+%>
+<header class="blogEditor__header">
+  <div class="blogEditor__headerLeft">
+    <a class="btn btn--ghost btn--mini" href="<%= backHref %>">← Posts</a>
+    <h1 class="blogEditor__headerTitle"><%= isEdit ? 'Edit article' : 'New article' %></h1>
+    <% if (isEdit) { %>
+      <span class="statusBadge statusBadge--<%= statusBadge(p.status) %> blogEditor__statusPill"><%= p.status %></span>
+    <% } %>
+  </div>
+  <div class="blogEditor__headerCenter">
+    <span class="blogEditor__saveStatus" id="blogEditorSaveStatus" data-state="saved">Saved</span>
+  </div>
+  <div class="blogEditor__headerRight dashToolbar">
+    <button type="button" class="btn btn--ghost btn--mini blogEditor__settingsBtn" data-filter-open="blogEditorSettings">Settings</button>
+    <% if (isEdit) { %>
+      <a class="btn btn--ghost btn--mini" target="_blank" rel="noopener" href="/admin/blog/<%= p.id %>/preview">Preview</a>
+      <% if (p.status === 'published') { %>
+        <button class="btn btn--primary btn--mini" type="submit" form="blogPostForm" name="publish_after_save" value="1">Update &amp; publish</button>
+        <button class="btn btn--ghost btn--mini" type="submit" formaction="/admin/blog/<%= p.id %>/unpublish" formmethod="post">Unpublish</button>
+      <% } else { %>
+        <button class="btn btn--primary btn--mini" type="submit" form="blogPostForm" name="publish_after_save" value="1" id="blogSavePublish">Save &amp; publish</button>
+        <button class="btn btn--ghost btn--mini" type="submit" form="blogPostForm" name="publish_after_save" value="0" id="blogSaveDraft">Save draft</button>
+      <% } %>
+    <% } else { %>
+      <button class="btn btn--primary btn--mini" type="submit" form="blogPostForm" name="publish_after_save" value="1">Save &amp; publish</button>
+      <button class="btn btn--ghost btn--mini" type="submit" form="blogPostForm" name="publish_after_save" value="0" id="blogSaveDraft">Save draft</button>
+    <% } %>
+    <% if (isEdit && ba.ai) { %>
+      <a class="btn btn--ghost btn--mini" href="/admin/blog/<%= p.id %>/ai/preview">AI</a>
+    <% } %>
+  </div>
+</header>

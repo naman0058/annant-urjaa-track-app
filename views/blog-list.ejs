@@ -1,0 +1,162 @@
+<%- include('header.ejs') %>
+<link href="/css/blog-public.css?v=6" rel="stylesheet">
+
+<div class="page-header bg-section parallaxie blog-page-header">
+  <div class="container">
+    <div class="page-header-box">
+      <h1 class="blog-page-header__title"><%= category ? category.name : 'Blog' %></h1>
+      <p><%= category ? (category.description || 'Category articles') : 'Insights on PEMF therapy, wellness, and recovery.' %></p>
+    </div>
+  </div>
+</div>
+
+<div class="container blog-layout">
+  <section class="blog-discovery" aria-labelledby="blog-discovery-heading">
+    <div class="blog-discovery__shell">
+      <div class="blog-discovery__row blog-discovery__row--compact">
+        <p class="blog-discovery__eyebrow" id="blog-discovery-heading"><%= category ? 'Category' : 'Discover' %></p>
+        <div class="blog-discovery__title-bar">
+          <h2 class="blog-discovery__title"><%= searchQuery ? 'Search results' : (category ? category.name : 'Explore our library') %></h2>
+          <% if (pagination && pagination.total !== undefined) { %>
+            <div class="blog-discovery__stat" role="status">
+              <span class="blog-discovery__stat-value"><%= pagination.total %></span>
+              <span class="blog-discovery__stat-label">article<%= pagination.total === 1 ? '' : 's' %></span>
+            </div>
+          <% } %>
+        </div>
+        <% if (searchQuery || category) { %>
+          <p class="blog-discovery__hint">
+            <% if (searchQuery) { %>
+              Showing matches for “<%= searchQuery %>”
+            <% } else { %>
+              Filtered by <%= category.name %> — switch topics below or search all posts.
+            <% } %>
+          </p>
+        <% } %>
+      </div>
+
+      <form class="blog-discovery__search" method="get" action="<%= listBase || '/blog' %>" role="search">
+        <label class="blog-discovery__search-label" for="blog-q">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <span class="sr-only-blog">Search articles</span>
+        </label>
+        <input
+          id="blog-q"
+          class="blog-discovery__search-input"
+          type="search"
+          name="q"
+          value="<%= searchQuery || '' %>"
+          placeholder="Search topics, therapies, guides…"
+          maxlength="120"
+          autocomplete="off"
+        >
+        <button class="blog-discovery__search-btn" type="submit">
+          <span>Search</span>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+        <% if (searchQuery) { %>
+          <a class="blog-discovery__clear" href="<%= listBase || '/blog' %>">Clear search</a>
+        <% } %>
+      </form>
+
+      <% if ((categories || []).length) {
+          const allCats = categories;
+          const byCount = allCats.slice().sort(function (a, b) {
+            return Number(b.post_count) - Number(a.post_count);
+          });
+          const stripLimit = 9;
+          let stripCats = byCount.slice(0, stripLimit);
+          if (activeCategory) {
+            const hasActive = stripCats.some(function (c) { return c.slug === activeCategory; });
+            if (!hasActive) {
+              const ac = allCats.find(function (c) { return c.slug === activeCategory; });
+              if (ac) stripCats = [ac].concat(stripCats.slice(0, stripLimit - 1));
+            }
+          }
+          const stripSet = {};
+          stripCats.forEach(function (c) { stripSet[c.slug] = true; });
+          const moreCats = allCats
+            .filter(function (c) { return !stripSet[c.slug]; })
+            .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+          const expandTopics = !!(activeCategory && moreCats.some(function (c) { return c.slug === activeCategory; }));
+        %>
+        <div class="blog-discovery__cats" data-blog-topics>
+          <div class="blog-discovery__cats-head">
+            <span class="blog-discovery__cats-label"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Popular topics</span>
+            <% if (moreCats.length) { %>
+              <button
+                type="button"
+                class="blog-topics-toggle"
+                data-topics-toggle
+                aria-expanded="<%= expandTopics ? 'true' : 'false' %>"
+                aria-controls="blog-topics-more"
+              >
+                All topics
+                <span class="blog-topics-toggle__count"><%= allCats.length %></span>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </button>
+            <% } else if (activeCategory) { %>
+              <a class="blog-discovery__cats-all" href="/blog">Clear filter</a>
+            <% } %>
+          </div>
+          <div class="blog-cats-rail">
+            <nav class="blog-cats blog-cats--strip" aria-label="Popular topics">
+              <a href="/blog" class="blog-cat-pill<%= !activeCategory ? ' is-active' : '' %>">
+                <span class="blog-cat-pill__name">All</span>
+              </a>
+              <% stripCats.forEach(function(cat) { %>
+                <a
+                  href="/blog/category/<%= cat.slug %>"
+                  class="blog-cat-pill<%= activeCategory === cat.slug ? ' is-active' : '' %>"
+                >
+                  <span class="blog-cat-pill__name"><%= cat.name %></span>
+                  <span class="blog-cat-pill__count"><%= cat.post_count %></span>
+                </a>
+              <% }) %>
+            </nav>
+          </div>
+          <% if (moreCats.length) { %>
+            <div
+              id="blog-topics-more"
+              class="blog-cats-more<%= expandTopics ? ' is-open' : '' %>"
+              <%= expandTopics ? '' : 'hidden' %>
+            >
+              <nav class="blog-cats blog-cats--grid" aria-label="All topics">
+                <% moreCats.forEach(function(cat) { %>
+                  <a
+                    href="/blog/category/<%= cat.slug %>"
+                    class="blog-cat-pill blog-cat-pill--compact<%= activeCategory === cat.slug ? ' is-active' : '' %>"
+                  >
+                    <span class="blog-cat-pill__name"><%= cat.name %></span>
+                    <span class="blog-cat-pill__count"><%= cat.post_count %></span>
+                  </a>
+                <% }) %>
+              </nav>
+            </div>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <div class="row g-4 blog-grid">
+    <% if (!(posts || []).length) { %>
+      <div class="col-12">
+        <div class="blog-empty">
+          <div class="blog-empty__icon" aria-hidden="true"><i class="fa-regular fa-file-lines"></i></div>
+          <p class="blog-empty__title">No articles found</p>
+          <p class="blog-empty__text"><%= searchQuery ? 'Try a different keyword or clear your search.' : 'Check back soon for new content.' %></p>
+          <a class="btn btn-default blog-empty__cta" href="/blog">View all posts</a>
+        </div>
+      </div>
+    <% } %>
+    <% (posts || []).forEach(function(p) { %>
+      <%- include('partials/blog-card', { p }) %>
+    <% }) %>
+  </div>
+
+  <%- include('partials/blog-pagination', { pagination, buildListUrl }) %>
+</div>
+
+<script src="/js/blog-topics.js?v=1" defer></script>
+<%- include('footer.ejs') %>

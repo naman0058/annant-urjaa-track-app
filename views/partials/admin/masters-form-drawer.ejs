@@ -1,0 +1,40 @@
+<div class="filterDrawer masterFormDrawer" id="masterCreateDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact" role="dialog" aria-labelledby="masterCreateTitle">
+    <div class="filterDrawer__head">
+      <h2 id="masterCreateTitle" class="filterDrawer__title">Create master code</h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="masterCreateForm" class="filterDrawer__body filterDrawer__body--compact masterFormDrawer__form" method="post" action="/admin/masters" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <div class="filterDrawer__stack">
+        <label class="field">
+          <span class="field__label">Master member</span>
+          <input type="hidden" name="assigned_member" id="masterCreateUserId" required>
+          <div class="lookupWrap">
+            <input class="input input--compact" type="search" id="masterCreateUserSearch" placeholder="Search name or email" autocomplete="off">
+            <div class="lookupDropdown" id="masterCreateUserResults" hidden></div>
+          </div>
+        </label>
+        <div class="fieldGrid fieldGrid--date">
+          <label class="field">
+            <span class="field__label">Valid from</span>
+            <input class="input input--compact" type="date" name="valid_from" required>
+          </label>
+          <label class="field">
+            <span class="field__label">Valid to</span>
+            <input class="input input--compact" type="date" name="valid_to" required>
+          </label>
+        </div>
+        <label class="field">
+          <span class="field__label">Notes</span>
+          <input class="input input--compact" type="text" name="notes" placeholder="Optional internal note">
+        </label>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="masterCreateForm">Generate</button>
+    </div>
+  </aside>
+</div>

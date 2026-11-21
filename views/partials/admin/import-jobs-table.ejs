@@ -1,0 +1,71 @@
+<%
+  const list = jobs || [];
+  const pg = pagination || { page: 1, limit: 25, total: 0, totalPages: 1 };
+  const jobBadge = (s) => {
+    const map = { completed: 'success', processing: 'warning', queued: 'info', pending: 'info', paused: 'warning', cancelled: 'danger', failed: 'danger' };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+  const hasRows = list.length > 0;
+  const fmt = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
+%>
+<div class="panel__body blogImportTableBody<%= hasRows ? '' : ' panel__body--empty' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+      <p class="dashEmpty__label">No import jobs yet.</p>
+      <a class="btn btn--primary btn--mini" href="/admin/blogs/import">Start import</a>
+    </div>
+  <% } else { %>
+    <div class="blogImportTableWrap">
+      <table class="table table--dashboard table--compact table--blogImportJobs" id="importJobsTable">
+        <thead>
+          <tr>
+            <th scope="col">Job</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="col-numeric">Files</th>
+            <th scope="col" class="col-numeric">Done</th>
+            <th scope="col" class="col-numeric">Failed</th>
+            <th scope="col" class="col-numeric">Cost</th>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% list.forEach((j) => { %>
+            <tr data-import-job-row="<%= j.id %>">
+              <td><a class="mono" href="/admin/blogs/jobs/<%= j.id %>">#<%= j.id %></a></td>
+              <td><span class="statusBadge statusBadge--<%= jobBadge(j.status) %>"><%= j.status %></span></td>
+              <td class="mono col-numeric"><%= j.total_files %></td>
+              <td class="mono col-numeric"><%= j.completed_count %></td>
+              <td class="mono col-numeric"><%= j.failed_count %></td>
+              <td class="mono col-numeric">$<%= j.actual_cost_usd != null ? j.actual_cost_usd : (j.estimated_cost_usd || '—') %></td>
+              <td class="mono col-date col-date--sm"><%= fmt(j.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for job <%= j.id %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="/admin/blogs/jobs/<%= j.id %>">Progress</a></li>
+                      <li><a href="/admin/blogs/jobs/<%= j.id %>/review">Review results</a></li>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pg.totalPages > 1) { %>
+      <div class="reportTxPager" aria-label="Import jobs pagination">
+        <span class="reportTxPager__info"><%= pg.page %> / <%= pg.totalPages %> · <%= pg.total %> jobs</span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %><a class="btn btn--ghost btn--mini" href="/admin/blogs/jobs?page=<%= pg.page - 1 %>">Prev</a>
+          <% } else { %><button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button><% } %>
+          <% if (pg.page < pg.totalPages) { %><a class="btn btn--ghost btn--mini" href="/admin/blogs/jobs?page=<%= pg.page + 1 %>">Next</a>
+          <% } else { %><button type="button" class="btn btn--ghost btn--mini" disabled>Next</button><% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

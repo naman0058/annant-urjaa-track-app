@@ -1,0 +1,38 @@
+/* iTorus Executive — Midnight & Muted Gold design tokens */
+.admin-app {
+  --it-canvas: #090b0f;
+  --it-sidebar: #101318;
+  --it-surface: #14181e;
+  --it-surface-elevated: #1b2028;
+  --it-border: #303640;
+  --it-input-bg: #1b2028;
+  --it-text: #f4f5f7;
+  --it-text-secondary: #a6adb8;
+  --it-text-muted: #808995;
+  --it-gold: #d7af45;
+  --it-gold-hover: #e3bf62;
+  --it-gold-tint: rgba(215, 175, 69, 0.1);
+  --it-success: #34c98a;
+  --it-warning: #e5ad45;
+  --it-danger: #ec6a6a;
+  --it-info: #74a9ef;
+
+  /* Aliases used by legacy admin CSS */
+  --admin-bg: var(--it-canvas);
+  --admin-surface: var(--it-surface);
+  --admin-surface-2: var(--it-surface-elevated);
+  --admin-border: var(--it-border);
+  --admin-gold: var(--it-gold);
+  --admin-gold-dim: var(--it-gold-tint);
+  --admin-text: var(--it-text);
+  --admin-muted: var(--it-text-secondary);
+  --admin-sidebar-w: 248px;
+  --admin-sidebar-w-collapsed: 72px;
+  --admin-topbar-h: 56px;
+  --admin-radius: 12px;
+  --admin-radius-sm: 10px;
+  --admin-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --admin-control-h: 42px;
+  --admin-gutter: 24px;
+  --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}

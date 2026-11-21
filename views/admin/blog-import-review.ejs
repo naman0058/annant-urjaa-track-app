@@ -1,0 +1,87 @@
+<%
+  const j = job || {};
+  const jobBadge = (s) => {
+    const map = { completed: 'success', failed: 'danger', skipped: 'warning', processing: 'warning', pending: 'info' };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+%>
+<div class="page" data-blog-import data-import-studio data-import-review data-job-id="<%= j.id %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Review import results</h1>
+      <span class="pageHeader__period">
+        Job <span class="mono">#<%= j.id %></span>
+        · <span class="statusBadge statusBadge--<%= jobBadge(j.status) %>"><%= j.status %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="/admin/blogs/jobs/<%= j.id %>">Progress</a>
+      <a class="btn btn--ghost btn--mini" href="/admin/blogs/import">Import Studio</a>
+    </div>
+  </header>
+
+  <div class="folderImportKpis folderImportKpis--job">
+    <div class="folderImportKpi"><span class="folderImportKpi__label">Completed</span><span class="folderImportKpi__value mono"><%= j.completed_count %></span></div>
+    <div class="folderImportKpi"><span class="folderImportKpi__label">Needs review</span><span class="folderImportKpi__value mono"><%= j.completed_count %></span></div>
+    <div class="folderImportKpi"><span class="folderImportKpi__label">Failed</span><span class="folderImportKpi__value mono"><%= j.failed_count %></span></div>
+    <div class="folderImportKpi"><span class="folderImportKpi__label">Skipped</span><span class="folderImportKpi__value mono"><%= j.skipped_count %></span></div>
+  </div>
+
+  <section class="panel panel--compact blogImportDataTable">
+    <div class="panel__head panel__head--split">
+      <h3 class="panel__title">Generated drafts</h3>
+    </div>
+    <div class="panel__body blogImportTableBody">
+      <div class="blogImportTableWrap">
+        <table class="table table--dashboard table--compact table--blogImportFiles" id="reviewItemsTable">
+          <thead>
+            <tr>
+              <th scope="col">Source</th>
+              <th scope="col">Post</th>
+              <th scope="col">Status</th>
+              <th class="col-actions"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (items || []).forEach((it) => { %>
+              <tr>
+                <td class="importStudio__fileName" title="<%= it.relative_path || it.file_name %>"><%= it.relative_path || it.file_name %></td>
+                <td><% if (it.post_id) { %><a class="mono" href="/admin/blog/<%= it.post_id %>/edit">#<%= it.post_id %></a><% } else { %>—<% } %></td>
+                <td><span class="statusBadge statusBadge--<%= jobBadge(it.status) %>"><%= it.status %></span></td>
+                <td class="col-actions">
+                  <% if (it.post_id) { %>
+                    <details class="rowMenu" data-row-menu>
+                      <summary class="btn btn--ghost btn--mini" aria-label="Actions">•••</summary>
+                      <div class="rowMenu__panel">
+                        <ul class="rowMenu__list">
+                          <li><button type="button" class="rowMenu__btn" data-compare-item="<%= it.id %>">Compare</button></li>
+                          <li><a href="/admin/blog/<%= it.post_id %>/edit">Open in CMS</a></li>
+                          <li><a href="/admin/blog/<%= it.post_id %>/preview" target="_blank" rel="noopener">Preview draft</a></li>
+                        </ul>
+                      </div>
+                    </details>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="filterDrawer" id="importCompareDrawer" aria-hidden="true">
+    <div class="filterDrawer__backdrop" data-compare-close></div>
+    <aside class="filterDrawer__panel filterDrawer__panel--wide" role="dialog">
+      <div class="filterDrawer__head">
+        <h2 class="filterDrawer__title">Source vs generated</h2>
+        <button type="button" class="btn btn--ghost btn--mini" data-compare-close>Close</button>
+      </div>
+      <div class="filterDrawer__body importStudio__compareGrid">
+        <section><h3>Original</h3><pre class="importStudio__comparePane" id="compareSource"></pre></section>
+        <section><h3>Generated draft</h3><div class="importStudio__comparePane importStudio__compareHtml" id="compareGenerated"></div></section>
+      </div>
+    </aside>
+  </div>
+</div>
+<script src="/js/admin-import-review.js?v=1" defer></script>

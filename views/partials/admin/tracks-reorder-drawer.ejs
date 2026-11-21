@@ -1,0 +1,38 @@
+<%
+  const items = orderRows || [];
+  const catId = Number(categoryId || 0);
+  const cats = categories || [];
+  const catName = cats.find((c) => Number(c.id) === catId)?.name || (catId ? 'Category' : '');
+%>
+<div class="filterDrawer" id="trackReorderDrawer" aria-hidden="true">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-labelledby="trackReorderTitle">
+    <div class="filterDrawer__head">
+      <h2 id="trackReorderTitle" class="filterDrawer__title">Reorder tracks</h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <div class="filterDrawer__body filterDrawer__body--compact">
+      <% if (!catId) { %>
+        <p class="filterDrawer__hint">Select a category in Filters, then apply, to reorder tracks within that category.</p>
+      <% } else { %>
+        <p class="filterDrawer__hint">Order for <strong><%= catName %></strong>. Drag to set play order in the app.</p>
+        <ul class="trackReorderList" id="trackReorderList" data-category-id="<%= catId %>" aria-label="Track order">
+          <% items.forEach((t) => { %>
+            <li class="trackReorderItem" data-id="<%= t.id %>">
+              <button type="button" class="trackReorderHandle" aria-label="Drag">⋮⋮</button>
+              <span class="trackReorderName"><%= t.title %></span>
+              <span class="trackReorderOrder mono"><%= t.sort_order != null ? t.sort_order : '—' %></span>
+            </li>
+          <% }) %>
+        </ul>
+        <% if (!items.length) { %>
+          <p class="cellMuted">No tracks in this category.</p>
+        <% } %>
+      <% } %>
+    </div>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="button" class="btn btn--primary btn--mini" id="trackReorderSave" <%= catId && items.length ? '' : 'disabled' %>>Save order</button>
+    </div>
+  </aside>
+</div>

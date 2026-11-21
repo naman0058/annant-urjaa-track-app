@@ -1,0 +1,19 @@
+<%
+  const lazy = typeof lazyLoad !== 'undefined' ? lazyLoad : false;
+  const altText = (typeof alt !== 'undefined' && alt) ? alt : '';
+  const cls = typeof className !== 'undefined' ? className : '';
+  const imgStyle = typeof style !== 'undefined' ? style : '';
+  const img = typeof responsive !== 'undefined' ? responsive : null;
+%>
+<% if (img && img.src) { %>
+  <img
+    src="<%= img.src %>"
+    <% if (img.srcset) { %>srcset="<%= img.srcset %>" sizes="<%= img.sizes %>"<% } %>
+    alt="<%= altText %>"
+    class="<%= cls %>"
+    style="<%= imgStyle %>"
+    <% if (lazy) { %>loading="lazy" decoding="async"<% } %>
+    <% if (img.width) { %>width="<%= img.width %>"<% } %>
+    <% if (img.height) { %>height="<%= img.height %>"<% } %>
+  >
+<% } %>

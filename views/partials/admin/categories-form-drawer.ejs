@@ -1,0 +1,47 @@
+<%
+  const drawerMode = typeof formDrawerMode !== 'undefined' ? formDrawerMode : 'create';
+  const isEdit = drawerMode === 'edit';
+  const drawerId = isEdit ? 'catEditDrawer' : 'catCreateDrawer';
+  const title = isEdit ? 'Edit category' : 'Create category';
+  const formId = isEdit ? 'catEditForm' : 'catCreateForm';
+  const action = isEdit ? '/admin/categories/0' : '/admin/categories';
+%>
+<div class="filterDrawer catFormDrawer" id="<%= drawerId %>" aria-hidden="true" data-cat-form="<%= drawerMode %>">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= title %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="<%= formId %>" class="filterDrawer__body filterDrawer__body--compact catFormDrawer__form" method="post" action="<%= action %>" enctype="multipart/form-data" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <% if (isEdit) { %>
+        <input type="hidden" name="return" id="catEditReturn" value="<%= typeof listReturnQs !== 'undefined' ? listReturnQs : '' %>">
+      <% } %>
+      <div class="filterDrawer__stack">
+        <label class="field">
+          <span class="field__label">Name</span>
+          <input class="input input--compact" type="text" name="name" id="<%= isEdit ? 'catEditName' : 'catCreateName' %>" required placeholder="e.g. Sleep &amp; calm">
+        </label>
+        <label class="field">
+          <span class="field__label">Description</span>
+          <input class="input input--compact" type="text" name="description" id="<%= isEdit ? 'catEditDescription' : 'catCreateDescription' %>" placeholder="Optional short summary">
+        </label>
+        <% if (isEdit) { %>
+          <div class="catFormThumbPreview" id="catEditThumbPreviewWrap" hidden>
+            <span class="field__label">Current thumbnail</span>
+            <img id="catEditThumbPreview" class="catThumbPreview" alt="">
+          </div>
+        <% } %>
+        <label class="field">
+          <span class="field__label"><%= isEdit ? 'Replace thumbnail' : 'Thumbnail' %> (optional)</span>
+          <input class="input input--compact" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp,.gif">
+        </label>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= formId %>"><%= isEdit ? 'Save' : 'Create' %></button>
+    </div>
+  </aside>
+</div>

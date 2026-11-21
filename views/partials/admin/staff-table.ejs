@@ -1,0 +1,111 @@
+<%
+  const rows = staff || [];
+  const pg = pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+  const hasRows = rows.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/staff/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const qsFn = typeof qsBase === 'function' ? qsBase : () => '';
+  const roleBadge = (r) => {
+    const map = { super: 'warning', manager: 'success', viewer: 'info' };
+    return map[String(r).toLowerCase()] || 'info';
+  };
+  const manage = typeof canManageStaff !== 'undefined' ? canManageStaff : false;
+%>
+<div class="panel__body staffTableBody<%= hasRows ? '' : ' panel__body--empty' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+      <p class="dashEmpty__label">
+        <%= datasetEmpty ? 'No staff accounts yet.' : 'No matching staff.' %>
+      </p>
+      <% if (filteredEmpty) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/staff">Clear filters</a>
+      <% } %>
+      <% if (datasetEmpty && manage) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-filter-open="staffCreateDrawer">Add staff</button>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="staffTableWrap">
+      <table class="table table--dashboard table--compact table--staffList" id="staffTable">
+        <thead>
+          <tr>
+            <th scope="col">Staff</th>
+            <th scope="col">Email</th>
+            <th scope="col">Role</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((m) => { %>
+            <tr data-staff-row="<%= m.id %>">
+              <td class="col-member">
+                <a class="staffNameLink" href="<%= detailHref(m.id) %>"><%= m.name %></a>
+              </td>
+              <td class="mono staffEmailCell"><%= m.email %></td>
+              <td><span class="statusBadge statusBadge--<%= roleBadge(m.role) %>"><%= m.role %></span></td>
+              <td>
+                <% if (m.is_active) { %>
+                  <span class="statusBadge statusBadge--success">Active</span>
+                <% } else { %>
+                  <span class="statusBadge statusBadge--danger">Inactive</span>
+                <% } %>
+              </td>
+              <td class="mono col-date"><%= fmt(m.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for <%= m.name %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(m.id) %>">View</a></li>
+                      <% if (manage) { %>
+                        <li>
+                          <button type="button" class="rowMenu__btn" data-staff-edit
+                            data-id="<%= m.id %>"
+                            data-name="<%= (m.name||'').replace(/"/g,'&quot;') %>"
+                            data-email="<%= (m.email||'').replace(/"/g,'&quot;') %>"
+                            data-role="<%= m.role %>"
+                            data-active="<%= m.is_active ? '1' : '0' %>"
+                          >Edit</button>
+                        </li>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pg.totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Staff pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/staff<%= qsFn({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page mono"><%= pg.page %> / <%= pg.totalPages %></span>
+          <% if (pg.page < pg.totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/staff<%= qsFn({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

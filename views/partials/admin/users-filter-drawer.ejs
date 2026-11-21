@@ -1,0 +1,56 @@
+<%
+  const f = filters || {};
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Name or email</span>
+      <input class="input input--compact" type="search" name="q" value="<%= f.q || '' %>" placeholder="Search…" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Sort &amp; page</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Sort by</span>
+        <select class="select select--compact" name="sort">
+          <option value="created_at" <%= f.sort==='created_at'?'selected':'' %>>Joined</option>
+          <option value="name" <%= f.sort==='name'?'selected':'' %>>Name</option>
+          <option value="email" <%= f.sort==='email'?'selected':'' %>>Email</option>
+          <option value="id" <%= f.sort==='id'?'selected':'' %>>User ID</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Direction</span>
+        <select class="select select--compact" name="dir">
+          <option value="desc" <%= f.dir==='desc'?'selected':'' %>>Newest first</option>
+          <option value="asc" <%= f.dir==='asc'?'selected':'' %>>Oldest first</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [10,20,50,100].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit||20)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+  <details class="filterDrawer__advanced">
+    <summary>Joined date</summary>
+    <div class="filterDrawer__advancedBody">
+      <div class="fieldGrid fieldGrid--date">
+        <label class="field">
+          <span class="field__label">From</span>
+          <input class="input input--compact" type="date" name="from" value="<%= f.from || '' %>">
+        </label>
+        <label class="field">
+          <span class="field__label">To</span>
+          <input class="input input--compact" type="date" name="to" value="<%= f.to || '' %>">
+        </label>
+      </div>
+    </div>
+  </details>
+</div>

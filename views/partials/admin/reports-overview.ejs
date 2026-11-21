@@ -1,0 +1,213 @@
+<%
+  const inr = (p) => '₹' + (Number(p || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const gran = meta.granularity || 'daily';
+%>
+<section class="statGrid" aria-label="Report summary">
+  <div class="statCard">
+    <div class="statCard__icon" aria-hidden="true">₹</div>
+    <div class="statCard__label">Captured revenue</div>
+    <div class="statCard__value"><%= inr(st.salesAmount) %></div>
+    <div class="statCard__meta"><span class="<%= st.deltas?.sales?.cssClass %>"><%= st.deltas?.sales?.label %></span></div>
+  </div>
+  <div class="statCard">
+    <div class="statCard__icon statCard__icon--info" aria-hidden="true">◎</div>
+    <div class="statCard__label">Total transactions</div>
+    <div class="statCard__value"><%= st.transactionCount || 0 %></div>
+    <div class="statCard__meta"><span class="<%= st.deltas?.transactions?.cssClass %>"><%= st.deltas?.transactions?.label %></span></div>
+  </div>
+  <div class="statCard">
+    <div class="statCard__icon statCard__icon--info" aria-hidden="true">▣</div>
+    <div class="statCard__label">New subscriptions</div>
+    <div class="statCard__value"><%= st.subsCount || 0 %></div>
+    <div class="statCard__meta"><span class="<%= st.deltas?.subs?.cssClass %>"><%= st.deltas?.subs?.label %></span></div>
+  </div>
+  <div class="statCard">
+    <div class="statCard__icon statCard__icon--info" aria-hidden="true">◌</div>
+    <div class="statCard__label">New members</div>
+    <div class="statCard__value"><%= st.totalUsers || 0 %></div>
+    <div class="statCard__meta"><span class="<%= st.deltas?.users?.cssClass %>"><%= st.deltas?.users?.label %></span></div>
+  </div>
+</section>
+
+<div class="dashGrid">
+  <section class="panel dashGrid__span-8" aria-labelledby="repRevenueTitle">
+    <div class="panel__head panel__head--split">
+      <h2 id="repRevenueTitle" class="panel__title">Revenue performance</h2>
+    </div>
+    <div class="panel__body panel__body--chart panel__body--chart--revenue" id="reportsRevenueWrap">
+      <canvas id="reportsRevenueChart" role="img" aria-label="Revenue performance"></canvas>
+      <div class="chartEmpty dashEmpty" id="reportsRevenueEmpty" hidden role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">₹</span>
+        <p class="dashEmpty__label">No captured revenue in this period.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel dashGrid__span-4" aria-labelledby="repTxStatusTitle">
+    <div class="panel__head">
+      <h2 id="repTxStatusTitle" class="panel__title">Transaction status</h2>
+    </div>
+    <div class="panel__body panel__body--chart-donut" id="reportsTxStatusWrap">
+      <div class="donutChartLayout">
+        <div class="donutChartLayout__canvas">
+          <canvas id="reportsTxStatusChart" role="img" aria-label="Transaction status breakdown"></canvas>
+          <div class="chartEmpty dashEmpty" id="reportsTxStatusEmpty" hidden role="status">
+            <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◎</span>
+            <p class="dashEmpty__label">No transactions in this period.</p>
+          </div>
+        </div>
+        <div class="donutLegend" id="reportsTxStatusLegend" aria-label="Status legend"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel dashGrid__span-6" aria-labelledby="repSubsTitle">
+    <div class="panel__head"><h2 id="repSubsTitle" class="panel__title">Subscription growth</h2></div>
+    <div class="panel__body panel__body--chart panel__body--chart--bar" id="reportsSubsWrap">
+      <canvas id="reportsSubsChart" role="img" aria-label="Subscription growth"></canvas>
+      <div class="chartEmpty dashEmpty" id="reportsSubsEmpty" hidden role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">▣</span>
+        <p class="dashEmpty__label">No new subscriptions in this period.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel dashGrid__span-6" aria-labelledby="repMembersTitle">
+    <div class="panel__head"><h2 id="repMembersTitle" class="panel__title">Member growth</h2></div>
+    <div class="panel__body panel__body--chart panel__body--chart--bar" id="reportsMembersWrap">
+      <canvas id="reportsMembersChart" role="img" aria-label="Member growth"></canvas>
+      <div class="chartEmpty dashEmpty" id="reportsMembersEmpty" hidden role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">◌</span>
+        <p class="dashEmpty__label">No new members in this period.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel dashGrid__span-6" aria-labelledby="repTracksTitle">
+    <div class="panel__head panel__head--split reportsTopTracks__head">
+      <h2 id="repTracksTitle" class="panel__title">Top performing tracks</h2>
+      <div class="reportsTopTracks__metric">
+        <label class="srChartSummary" for="reportsTopTracksMetric">Track metric</label>
+        <select class="select select--compact" id="reportsTopTracksMetric" aria-label="Track ranking metric">
+          <option value="revenue" data-metric="revenue" <%= (typeof revenueByTrackAvailable !== 'undefined' && !revenueByTrackAvailable) ? 'disabled' : '' %>>Captured revenue</option>
+          <option value="subscriptions" data-metric="subscriptions">New subscriptions</option>
+          <option value="active" data-metric="active">Active subscriptions</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel__body panel__body--chart panel__body--chart-short" id="reportsTopTracksWrap">
+      <canvas id="reportsTopTracksChart" role="img" aria-label="Top tracks"></canvas>
+      <div class="chartEmpty dashEmpty" id="reportsTopTracksEmpty" hidden role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">▣</span>
+        <p class="dashEmpty__label" data-empty-msg>No track activity in this period.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel dashGrid__span-6" aria-labelledby="repBreakTitle">
+    <div class="panel__head">
+      <h2 id="repBreakTitle" class="panel__title">Performance snapshot</h2>
+    </div>
+    <% const preview = (periodBreakdown || []).filter((row) =>
+      Number(row.revenue_paise||0) || Number(row.transactions||0) || Number(row.subscriptions||0) || Number(row.members||0)
+    ).slice(-6).reverse(); %>
+    <div class="panel__body panel__body--tight<%= !preview.length ? ' panel__body--empty' : '' %>">
+      <% if (!preview.length) { %>
+        <div class="dashEmpty" role="status">
+          <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">—</span>
+          <p class="dashEmpty__label">No activity in this range.</p>
+        </div>
+      <% } else { %>
+        <table class="table table--dashboard table--compact">
+          <thead>
+            <tr><th>Period</th><th class="col-amount">Revenue</th><th>Tx</th><th>Subs</th><th>Members</th></tr>
+          </thead>
+          <tbody>
+            <% preview.forEach((row) => { %>
+              <tr>
+                <td class="mono"><%= row.period %></td>
+                <td class="mono col-amount"><%= inr(row.revenue_paise) %></td>
+                <td class="mono"><%= row.transactions %></td>
+                <td class="mono"><%= row.subscriptions %></td>
+                <td class="mono"><%= row.members %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </section>
+</div>
+
+<section class="panel panel--breakdown dashGrid__span-12" id="reportsPeriodBreakdown" style="width:100%;">
+  <div class="panel__head panel__head--split">
+    <h2 class="panel__title">Period breakdown</h2>
+    <a class="btn btn--ghost btn--mini" href="/admin/reports.csv?<%= qsCsv('breakdown') %>">Export CSV</a>
+  </div>
+  <div class="panel__body panel__body--breakdown<%= (!(periodBreakdown||[]).length) ? ' panel__body--empty' : '' %>">
+    <% if (!(periodBreakdown||[]).length) { %>
+      <div class="dashEmpty" role="status">
+        <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">—</span>
+        <p class="dashEmpty__label">No rows for the selected range.</p>
+      </div>
+    <% } else { %>
+      <div class="breakdownToolbar" role="toolbar" aria-label="Breakdown table controls">
+        <form method="get" action="/admin/reports" class="breakdownToolbar__group">
+          <input type="hidden" name="tab" value="overview">
+          <% ['preset','from','to','track','sub_status','tx_status','method','category_id','compare'].forEach((key) => {
+            if (f[key]) { %><input type="hidden" name="<%= key %>" value="<%= f[key] %>"><% }
+          }) %>
+          <input type="hidden" name="granularity_set" value="1">
+          <label class="breakdownToolbar__label" for="breakdownGranularity">Grouping</label>
+          <select class="select select--compact" name="granularity" id="breakdownGranularity" onchange="this.form.submit()">
+            <option value="daily" <%= gran==='daily'?'selected':'' %>>Daily</option>
+            <option value="weekly" <%= gran==='weekly'?'selected':'' %>>Weekly</option>
+            <option value="monthly" <%= gran==='monthly'?'selected':'' %>>Monthly</option>
+          </select>
+        </form>
+        <label class="breakdownToolbar__toggle">
+          <input type="checkbox" id="breakdownHideZeros" checked>
+          <span>Hide zero-activity periods</span>
+        </label>
+        <div class="breakdownToolbar__group breakdownToolbar__group--end">
+          <label class="breakdownToolbar__label" for="breakdownPageSize">Rows</label>
+          <select class="select select--compact" id="breakdownPageSize" aria-label="Rows per page">
+            <option value="10">10</option>
+            <option value="12" selected>12</option>
+            <option value="25">25</option>
+          </select>
+        </div>
+      </div>
+      <div class="breakdownTableWrap" id="breakdownTableWrap">
+        <table class="table table--dashboard table--breakdown table--compact" id="reportsBreakdownTable">
+          <thead>
+            <tr>
+              <th scope="col">Period</th>
+              <th scope="col" class="col-amount">Captured revenue</th>
+              <th scope="col" class="col-num">Transactions</th>
+              <th scope="col" class="col-num">Subscriptions</th>
+              <th scope="col" class="col-num">New members</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="breakdownFilteredEmpty" id="breakdownFilteredEmpty" hidden role="status">
+        <div class="dashEmpty">
+          <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">—</span>
+          <p class="dashEmpty__label">No activity in the visible periods.</p>
+          <p class="breakdownFilteredEmpty__hint">Turn off “Hide zero-activity periods” or change grouping.</p>
+        </div>
+      </div>
+      <div class="breakdownPager" id="breakdownPager">
+        <span class="breakdownPager__info" id="breakdownPageInfo"></span>
+        <div class="breakdownPager__nav">
+          <button type="button" class="btn btn--ghost btn--mini" id="breakdownFirst">First</button>
+          <button type="button" class="btn btn--ghost btn--mini" id="breakdownPrev">Prev</button>
+          <button type="button" class="btn btn--ghost btn--mini" id="breakdownNext">Next</button>
+          <button type="button" class="btn btn--ghost btn--mini" id="breakdownLast">Last</button>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</section>

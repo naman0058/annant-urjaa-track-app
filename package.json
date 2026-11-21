@@ -6,9 +6,28 @@
   "main": "app.js",
   "scripts": {
     "start": "nodemon ./bin/www",
-    "dev": "nodemon ./bin/www"
+    "dev": "nodemon ./bin/www",
+    "build:admin-css": "node scripts/consolidate-admin-css.js",
+    "build:admin-blog-editor": "node scripts/build-admin-blog-editor.js",
+    "publish:scheduled-blog": "node scripts/publish-scheduled-blog.js",
+    "migrate:blog": "node scripts/migrate-blog.js",
+    "verify:blog-schema": "node scripts/verify-blog-schema.js",
+    "validate:blog-seo": "node scripts/validate-blog-seo.js",
+    "process:blog-import": "node scripts/process-blog-import-jobs.js",
+    "migrate:admin": "node scripts/migrate-admin-platform.js",
+    "migrate:sub-payment-link": "node scripts/migrate-subscription-payment-link.js",
+    "migrate:sub-payment-link:down": "node scripts/migrate-subscription-payment-link.js down",
+    "test": "node --test test/**/*.test.js",
+    "test:integration": "node --test test/integration/**/*.test.js"
   },
   "dependencies": {
+    "@tiptap/core": "^3.35.0",
+    "@tiptap/extension-image": "^3.35.0",
+    "@tiptap/extension-link": "^3.35.0",
+    "@tiptap/extension-placeholder": "^3.35.0",
+    "@tiptap/extension-underline": "^3.35.0",
+    "@tiptap/pm": "^3.35.0",
+    "@tiptap/starter-kit": "^3.35.0",
     "bcryptjs": "^3.0.2",
     "connect-flash": "^0.1.1",
     "cors": "^2.8.5",
@@ -21,12 +40,18 @@
     "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.13.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "mysql2": "^3.10.0",
-    "razorpay": "^2.9.6"
+    "openai": "^7.62.0",
+    "razorpay": "^2.9.6",
+    "sharp": "^0.34.5",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "esbuild": "^0.28.2",
+    "nodemon": "^3.1.0",
+    "supertest": "^7.3.2"
   }
 }

@@ -1,0 +1,217 @@
+<%
+  const sd = subDisplay || {};
+  const tx = txDisplay || {};
+  const badge = (s) => sd.statusBadgeClass ? sd.statusBadgeClass(s) : 'info';
+  const label = (s) => sd.formatStatusLabel ? sd.formatStatusLabel(s) : s;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const inr = (p) => '₹' + (Number(p || 0) / 100).toLocaleString('en-IN');
+  const audit = auditHistory || [];
+  const linked = linkedPayments || [];
+  const mhist = memberTxHistory || { rows: [], total: 0 };
+  const iss = issuance || {};
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super','manager'].includes(session.admin.role);
+  const isSuper = typeof session !== 'undefined' && session.admin && session.admin.role === 'super';
+  const backHref = returnQs ? ('/admin/subscriptions?' + returnQs) : '/admin/subscriptions';
+%>
+<div class="page" data-subscriptions data-sub-detail>
+  <header class="pageHeader">
+    <div>
+      <h1 class="pageHeader__title">Subscription #<%= sub.id %></h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= badge(sub.status) %>"><%= label(sub.status) %></span>
+        · <a href="/admin/users/<%= sub.user_id %>"><%= sub.user_name %></a>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost" href="<%= backHref %>">Back to subscriptions</a>
+      <% if (canWrite) { %>
+        <button type="button" class="btn btn--ghost" data-sub-edit
+          data-id="<%= sub.id %>"
+          data-track="<%= sub.track_key %>"
+          data-track-title="<%= (sub.track_title||'').replace(/"/g,'&quot;') %>"
+          data-status="<%= sub.status %>"
+          data-start="<%= fmt(sub.start_date) !== '—' ? fmt(sub.start_date) : '' %>"
+          data-end="<%= fmt(sub.end_date) !== '—' ? fmt(sub.end_date) : '' %>"
+        >Edit</button>
+        <details class="rowMenu subHeaderMenu" data-row-menu>
+          <summary class="btn btn--ghost btn--mini">More</summary>
+          <div class="rowMenu__panel">
+            <ul class="rowMenu__list">
+              <% if (sub.status !== 'cancelled') { %>
+                <li>
+                  <form method="post" action="/admin/subscriptions/<%= sub.id %>/cancel" class="rowMenu__form" onsubmit="return confirm('Cancel this subscription? Member access for this track follows active status and end date.');">
+                    <%- include('partials/csrf-field') %>
+                    <input type="hidden" name="_redirect" value="detail">
+                    <button type="submit" class="rowMenu__btn">Cancel subscription</button>
+                  </form>
+                </li>
+              <% } %>
+              <% if (isSuper) { %>
+                <li>
+                  <form method="post" action="/admin/subscriptions/<%= sub.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Permanently delete this subscription record? Payment history is not removed.');">
+                    <%- include('partials/csrf-field') %>
+                    <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete permanently</button>
+                  </form>
+                </li>
+              <% } %>
+            </ul>
+          </div>
+        </details>
+      <% } %>
+    </div>
+  </header>
+
+  <div class="dashGrid subDetailGrid">
+    <section class="panel dashGrid__span-12 subDetailOverview">
+      <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+      <div class="panel__body panel__body--tight">
+        <div class="subDetailColumns">
+          <div class="subDetailSection">
+            <h4 class="subDetailSection__title">Subscription</h4>
+            <dl class="detailList detailList--grid">
+              <div><dt>Subscription ID</dt><dd class="mono">#<%= sub.id %></dd></div>
+              <div><dt>Status</dt><dd><span class="statusBadge statusBadge--<%= badge(sub.status) %>"><%= label(sub.status) %></span></dd></div>
+              <div><dt>Track / plan</dt><dd><%= sub.track_title || sub.track_key || '—' %></dd></div>
+              <div><dt>Start</dt><dd class="mono"><%= fmt(sub.start_date) %></dd></div>
+              <div><dt>End</dt><dd class="mono"><%= fmt(sub.end_date) %></dd></div>
+              <div><dt>Created</dt><dd class="mono"><%= fmt(sub.created_at) %></dd></div>
+            </dl>
+          </div>
+          <div class="subDetailSection">
+            <h4 class="subDetailSection__title">Member</h4>
+            <dl class="detailList detailList--grid">
+              <div><dt>Name</dt><dd><a href="/admin/users/<%= sub.user_id %>"><%= sub.user_name %></a></dd></div>
+              <div><dt>Email</dt><dd class="mono"><%= sub.user_email %></dd></div>
+              <div><dt>Member ID</dt><dd class="mono"><%= sub.user_id %></dd></div>
+            </dl>
+          </div>
+          <div class="subDetailSection">
+            <h4 class="subDetailSection__title">Issuance</h4>
+            <dl class="detailList detailList--grid">
+              <div><dt>Source</dt><dd><%= iss.type === 'complimentary' || iss.type === 'admin' ? 'Admin' : '—' %></dd></div>
+              <% if (iss.reason) { %><div><dt>Reason</dt><dd><%= iss.reason %></dd></div><% } %>
+              <% if (paymentLinkage === 'none') { %>
+                <div><dt>Payment link</dt><dd class="field__hint">No subscription ID on file for payments. New captures after migration can link automatically.</dd></div>
+              <% } else { %>
+                <div><dt>Payment link</dt><dd>By subscription ID</dd></div>
+              <% } %>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel dashGrid__span-6">
+      <div class="panel__head"><h3 class="panel__title">Related payments</h3></div>
+      <div class="panel__body panel__body--tight<%= linked.length ? '' : ' panel__body--empty' %>">
+        <% if (!linked.length) { %>
+          <div class="dashEmpty" role="status">
+            <p class="dashEmpty__label">No payments linked to this subscription ID.</p>
+            <p class="field__hint">Manual or legacy subscriptions may have no linked order.</p>
+          </div>
+        <% } else { %>
+          <table class="table table--dashboard table--compact">
+            <thead><tr><th>Order</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              <% linked.forEach((t) => { %>
+                <tr>
+                  <td><a class="mono" href="/admin/transactions/<%= t.id %>"><%= tx.shortOrderId ? tx.shortOrderId(t.order_id) : t.order_id %></a></td>
+                  <td class="mono"><%= inr(t.amount) %></td>
+                  <td><span class="statusBadge statusBadge--<%= tx.txStatusBadgeClass(t.status) %>"><%= tx.formatTxStatus(t.status) %></span></td>
+                  <td class="mono"><%= tx.formatTxDateTime ? tx.formatTxDateTime(t.created_at) : t.created_at %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="panel dashGrid__span-6">
+      <div class="panel__head panel__head--split">
+        <h3 class="panel__title">Member transaction history</h3>
+        <% if (mhist.total > mhist.rows.length) { %>
+          <span class="field__hint">Member-wide · not proof of payment for this subscription</span>
+        <% } %>
+      </div>
+      <div class="panel__body panel__body--tight<%= mhist.rows.length ? '' : ' panel__body--empty' %>">
+        <p class="field__hint subHistoryDisclaimer">All orders for this member. Does not imply this subscription was funded by these orders.</p>
+        <% if (!mhist.rows.length) { %>
+          <div class="dashEmpty" role="status"><p class="dashEmpty__label">No transactions for this member.</p></div>
+        <% } else { %>
+          <table class="table table--dashboard table--compact">
+            <thead><tr><th>Order</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              <% mhist.rows.forEach((t) => { %>
+                <tr>
+                  <td><a class="mono" href="/admin/transactions/<%= t.id %>"><%= tx.shortOrderId ? tx.shortOrderId(t.order_id) : t.order_id %></a></td>
+                  <td class="mono"><%= inr(t.amount) %></td>
+                  <td><span class="statusBadge statusBadge--<%= tx.txStatusBadgeClass(t.status) %>"><%= tx.formatTxStatus(t.status) %></span></td>
+                  <td class="mono"><%= tx.formatTxDateTime ? tx.formatTxDateTime(t.created_at) : t.created_at %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <% if (mhist.total > 5) {
+            const curPage = typeof memberTxPage !== 'undefined' ? memberTxPage : 1;
+            const qsTx = (p) => {
+              const pr = new URLSearchParams();
+              if (returnQs) pr.set('return', returnQs);
+              pr.set('tx_page', p);
+              return pr.toString();
+            };
+          %>
+            <div class="reportTxPager">
+              <span class="reportTxPager__info">Page <%= curPage %> · <%= mhist.total %> total</span>
+              <div class="reportTxPager__nav">
+                <% if (curPage > 1) { %>
+                  <a class="btn btn--ghost btn--mini" href="/admin/subscriptions/<%= sub.id %>?<%= qsTx(curPage - 1) %>">Prev</a>
+                <% } %>
+                <% if (curPage * 5 < mhist.total) { %>
+                  <a class="btn btn--ghost btn--mini" href="/admin/subscriptions/<%= sub.id %>?<%= qsTx(curPage + 1) %>">Next</a>
+                <% } %>
+              </div>
+            </div>
+          <% } %>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="panel dashGrid__span-12">
+      <div class="panel__head"><h3 class="panel__title">Admin history</h3></div>
+      <div class="panel__body panel__body--tight<%= audit.length ? '' : ' panel__body--empty' %>">
+        <% if (!audit.length) { %>
+          <div class="dashEmpty" role="status"><p class="dashEmpty__label">No audit entries yet.</p></div>
+        <% } else { %>
+          <table class="table table--compact">
+            <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Notes</th></tr></thead>
+            <tbody>
+              <% audit.forEach((a) => {
+                let note = '';
+                try {
+                  const meta = a.metadata_json ? JSON.parse(a.metadata_json) : {};
+                  note = meta.reason || meta.cancelReason || '';
+                } catch (_) {}
+              %>
+                <tr>
+                  <td class="mono"><%= a.created_at %></td>
+                  <td><%= a.action %></td>
+                  <td class="mono"><%= a.actor_email || '—' %></td>
+                  <td><%= note || '—' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </section>
+  </div>
+
+  <% if (canWrite) { %>
+    <%- include('partials/admin/subscriptions-form-drawer', { formDrawerMode: 'edit', hasTrackId: !!hasTrackId }) %>
+  <% } %>
+</div>
+<script src="/js/admin-subscriptions.js?v=6" defer></script>

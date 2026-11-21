@@ -1,0 +1,42 @@
+<%
+  const drawerMode = typeof formDrawerMode !== 'undefined' ? formDrawerMode : 'create';
+  const isEdit = drawerMode === 'edit';
+  const drawerId = isEdit ? 'userEditDrawer' : 'userCreateDrawer';
+  const title = isEdit ? 'Edit user' : 'Create user';
+  const formId = isEdit ? 'userEditForm' : 'userCreateForm';
+  const action = isEdit ? '/admin/users/0' : '/admin/users';
+%>
+<div class="filterDrawer userFormDrawer" id="<%= drawerId %>" aria-hidden="true" data-user-form="<%= drawerMode %>">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= title %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="<%= formId %>" class="filterDrawer__body filterDrawer__body--compact userFormDrawer__form" method="post" action="<%= action %>" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <input type="hidden" name="_list_return" id="<%= isEdit ? 'userEditListReturn' : 'userCreateListReturn' %>" value="">
+      <% if (isEdit) { %>
+        <input type="hidden" name="_redirect" id="userEditRedirect" value="list">
+      <% } %>
+      <div class="filterDrawer__stack">
+        <label class="field">
+          <span class="field__label">Name</span>
+          <input class="input input--compact" type="text" name="name" id="<%= isEdit ? 'userEditName' : 'userCreateName' %>" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Email</span>
+          <input class="input input--compact" type="email" name="email" id="<%= isEdit ? 'userEditEmail' : 'userCreateEmail' %>" required>
+        </label>
+        <label class="field">
+          <span class="field__label"><%= isEdit ? 'New password' : 'Password' %></span>
+          <input class="input input--compact" type="password" name="password" id="<%= isEdit ? 'userEditPassword' : 'userCreatePassword' %>" <%= isEdit ? '' : 'required minlength="6"' %> placeholder="<%= isEdit ? 'Leave blank to keep' : 'Min 6 characters' %>">
+        </label>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= formId %>"><%= isEdit ? 'Save' : 'Create' %></button>
+    </div>
+  </aside>
+</div>

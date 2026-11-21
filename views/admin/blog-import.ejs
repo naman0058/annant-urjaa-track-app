@@ -1,0 +1,31 @@
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">Import blog posts</h2>
+      <div class="dash__subtitle">Bulk import via CSV. New rows are saved as <b>draft</b>. Duplicates are skipped unless you opt in to update.</div>
+    </div>
+    <a class="btn btn--ghost" href="/admin/blog">← Back</a>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body">
+      <form method="post" action="/admin/blog/import">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label class="label">CSV columns</label>
+          <p class="tinyHint">Required: <code>title</code>. Optional: <code>slug</code>, <code>excerpt</code>, <code>content_html</code> (or <code>content</code>), <code>meta_title</code>, <code>meta_description</code>, <code>source_url</code></p>
+        </div>
+        <div class="field">
+          <label class="label">CSV data</label>
+          <textarea class="input" name="csv_text" rows="16" placeholder="title,slug,excerpt,content_html&#10;My Post,my-post,Short intro,&lt;p&gt;Hello&lt;/p&gt;"></textarea>
+        </div>
+        <div class="field">
+          <label class="label">
+            <input type="checkbox" name="update_existing" value="1"> Update existing posts when slug matches (still never auto-publishes)
+          </label>
+        </div>
+        <button class="btn btn--primary" type="submit">Run import</button>
+      </form>
+    </div>
+  </div>
+</div>

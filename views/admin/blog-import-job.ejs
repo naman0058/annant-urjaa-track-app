@@ -1,0 +1,191 @@
+<%
+  const j = job || {};
+  const jobBadge = (s) => {
+    const map = {
+      completed: 'success',
+      processing: 'warning',
+      queued: 'info',
+      pending: 'info',
+      paused: 'warning',
+      cancelled: 'danger',
+    };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+  const itemBadge = (s) => {
+    const map = { completed: 'success', failed: 'danger', skipped: 'warning', processing: 'warning', pending: 'info' };
+    return map[String(s).toLowerCase()] || 'info';
+  };
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 16).replace('T', ' '); } catch { return '—'; }
+  };
+%>
+<div class="page" data-blog-import data-folder-import-job id="jobMonitor" data-job-id="<%= j.id %>" data-worker-enabled="<%= workerEnabled ? '1' : '0' %>" data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Import in progress</h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= jobBadge(j.status) %>" id="jobStatusBadge"><%= j.status %></span>
+        · <span class="mono">#<%= j.id %></span>
+        · <span class="mono" id="jobKey"><%= j.job_key %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="/admin/blogs/jobs/<%= j.id %>/review">Review results</a>
+      <a class="btn btn--ghost btn--mini" href="/admin/blogs/import">Import Studio</a>
+    </div>
+  </header>
+
+  <div class="folderImportJobProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= progress %>">
+    <div class="folderImportJobProgress__bar" id="jobProgressBar" style="width:<%= progress %>%"></div>
+    <span class="folderImportJobProgress__text mono" id="jobProgress"><%= progress %>%</span>
+  </div>
+
+  <div class="folderImportKpis folderImportKpis--job">
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Total</span>
+      <span class="folderImportKpi__value mono" id="stTotal"><%= j.total_files %></span>
+    </div>
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Done</span>
+      <span class="folderImportKpi__value mono" id="stCompleted"><%= j.completed_count %></span>
+    </div>
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Pending</span>
+      <span class="folderImportKpi__value mono" id="stPending"><%= j.pending_count %></span>
+    </div>
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Processing</span>
+      <span class="folderImportKpi__value mono" id="stProcessing"><%= j.processing_count %></span>
+    </div>
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Failed</span>
+      <span class="folderImportKpi__value mono" id="stFailed"><%= j.failed_count %></span>
+    </div>
+    <div class="folderImportKpi">
+      <span class="folderImportKpi__label">Cost</span>
+      <span class="folderImportKpi__value mono">$<span id="stCost"><%= j.actual_cost_usd != null ? j.actual_cost_usd : '0' %></span></span>
+    </div>
+  </div>
+
+  <section class="panel panel--compact">
+    <div class="panel__head panel__head--split">
+      <h3 class="panel__title">Controls</h3>
+      <span class="cellMuted mono"><%= j.ai_model %></span>
+    </div>
+    <div class="panel__body panel__body--tight folderImportJobControls">
+      <form method="post" action="/admin/blogs/import/process" class="folderImportJobControlForm">
+        <%- include('../partials/csrf-field') %>
+        <input type="hidden" name="job_id" value="<%= j.id %>">
+        <input type="hidden" name="limit" value="2">
+        <button class="btn btn--primary btn--mini" type="submit" <%= openaiConfigured ? '' : 'disabled' %>>Process batch</button>
+      </form>
+      <% if (['queued','processing'].includes(j.status)) { %>
+        <form method="post" action="/admin/blogs/jobs/<%= j.id %>/pause">
+          <%- include('../partials/csrf-field') %>
+          <button class="btn btn--ghost btn--mini" type="submit">Pause</button>
+        </form>
+      <% } %>
+      <% if (j.status === 'paused') { %>
+        <form method="post" action="/admin/blogs/jobs/<%= j.id %>/resume">
+          <%- include('../partials/csrf-field') %>
+          <button class="btn btn--ghost btn--mini" type="submit">Resume</button>
+        </form>
+      <% } %>
+      <form method="post" action="/admin/blogs/jobs/<%= j.id %>/cancel" onsubmit="return confirm('Cancel remaining items?');">
+        <%- include('../partials/csrf-field') %>
+        <button class="btn btn--ghost btn--mini" type="submit">Cancel</button>
+      </form>
+      <% if (Number(j.failed_count) > 0) { %>
+        <form method="post" action="/admin/blogs/jobs/<%= j.id %>/retry-failed">
+          <%- include('../partials/csrf-field') %>
+          <button class="btn btn--ghost btn--mini" type="submit">Retry failed</button>
+        </form>
+      <% } %>
+    </div>
+    <div class="panel__foot panel__foot--compact cellMuted mono">
+      Est. $<%= j.estimated_cost_usd != null ? j.estimated_cost_usd : '—' %> · Started <%= fmt(j.started_at) %> · Finished <%= fmt(j.completed_at) %>
+    </div>
+  </section>
+
+  <section class="panel panel--compact blogImportDataTable">
+    <div class="panel__head panel__head--split">
+      <h3 class="panel__title">Files</h3>
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-open="importJobItemFilters">Filter status</button>
+    </div>
+    <div class="panel__body blogImportTableBody">
+      <div class="blogImportTableWrap">
+        <table class="table table--dashboard table--compact table--blogImportFiles" id="itemsTable">
+          <thead>
+            <tr>
+              <th scope="col">File</th>
+              <th scope="col">Status</th>
+              <th scope="col">Post</th>
+              <th scope="col">Note</th>
+              <th class="col-actions"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="itemsTableBody">
+            <% (items || []).forEach((it) => { %>
+              <tr data-item-status="<%= it.status %>">
+                <td class="importStudio__fileName" title="<%= it.relative_path || it.file_name %>"><%= (it.relative_path || it.file_name || '').split('/').pop() %></td>
+                <td><span class="statusBadge statusBadge--<%= itemBadge(it.status) %>"><%= it.status %></span></td>
+                <td><% if (it.post_id) { %><a class="mono" href="/admin/blog/<%= it.post_id %>/edit">#<%= it.post_id %></a><% } else { %>—<% } %></td>
+                <td class="cellMuted folderImportReason"><%= it.error_message || it.skip_reason || '' %></td>
+                <td class="col-actions">
+                  <details class="rowMenu" data-row-menu>
+                    <summary class="btn btn--ghost btn--mini" aria-label="File actions">•••</summary>
+                    <div class="rowMenu__panel">
+                      <ul class="rowMenu__list">
+                        <% if (it.post_id) { %>
+                          <li><a href="/admin/blog/<%= it.post_id %>/edit">Open in CMS</a></li>
+                          <li><a href="/admin/blog/<%= it.post_id %>/preview" target="_blank" rel="noopener">Preview draft</a></li>
+                          <li><a href="/admin/blogs/jobs/<%= j.id %>/review">Compare</a></li>
+                        <% } %>
+                        <% if (it.status === 'failed') { %>
+                          <li>
+                            <form method="post" action="/admin/blogs/jobs/<%= j.id %>/retry-failed" class="rowMenu__form" onsubmit="return confirm('Retry failed items?');">
+                              <%- include('../partials/csrf-field') %>
+                              <button type="submit" class="rowMenu__btn">Retry failed</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      </ul>
+                    </div>
+                  </details>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="filterDrawer" id="importJobItemFilters" aria-hidden="true">
+    <div class="filterDrawer__backdrop" data-filter-close></div>
+    <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog">
+      <div class="filterDrawer__head">
+        <h2 class="filterDrawer__title">Filter files</h2>
+        <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      </div>
+      <div class="filterDrawer__body filterDrawer__body--compact">
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select class="select select--compact" id="importJobStatusFilter">
+            <option value="all">All</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="skipped">Skipped</option>
+            <option value="processing">Processing</option>
+            <option value="pending">Pending</option>
+          </select>
+        </label>
+      </div>
+      <div class="filterDrawer__foot filterDrawer__foot--compact">
+        <button type="button" class="btn btn--primary btn--mini" id="importJobFilterApply">Apply</button>
+      </div>
+    </aside>
+  </div>
+</div>
+<script src="/js/admin-blog-import-job.js?v=2" defer></script>

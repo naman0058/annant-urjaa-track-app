@@ -1,0 +1,49 @@
+<%
+  const cfg = typeof config !== 'undefined' ? config : {};
+%>
+<div class="filterDrawer__stack">
+  <label class="field">
+    <span class="field__label">AI model</span>
+    <input class="input input--compact" id="importModel" value="<%= model %>" readonly>
+    <% if (!openaiConfigured) { %><span class="statusBadge statusBadge--danger">No API key</span><% } %>
+  </label>
+  <label class="field">
+    <span class="field__label">Processing mode</span>
+    <%
+      const importMode = cfg.import_mode || 'ai_rewrite';
+    %>
+    <select class="select select--compact" id="importMode">
+      <option value="ai_rewrite"<%= importMode === 'ai_rewrite' ? ' selected' : '' %>>Copyright-safe rewrite (same title, new body)</option>
+      <option value="preserve_format"<%= importMode === 'preserve_format' ? ' selected' : '' %>>Clean formatting only (keeps source headings)</option>
+      <option value="metadata_only"<%= importMode === 'metadata_only' ? ' selected' : '' %>>Metadata extraction only</option>
+    </select>
+  </label>
+  <label class="field">
+    <span class="field__label">Language</span>
+    <input class="input input--compact" id="importLanguage" value="<%= cfg.language || 'English' %>">
+  </label>
+  <label class="field">
+    <span class="field__label">Tone</span>
+    <input class="input input--compact" id="importTone" value="<%= cfg.tone || 'clear, authoritative, helpful' %>">
+  </label>
+  <%
+    const autoPubDefault =
+      typeof importAutoPublishDefault !== 'undefined'
+        ? importAutoPublishDefault
+        : (cfg.auto_publish !== undefined ? !!cfg.auto_publish : true);
+    const autoPublishChecked = cfg.auto_publish !== undefined ? !!cfg.auto_publish : autoPubDefault;
+  %>
+  <label class="field field--checkbox">
+    <input type="checkbox" id="importAutoPublish" value="1"<%= autoPublishChecked ? ' checked' : '' %>>
+    <span class="field__label">Publish on site after import (live on blog)</span>
+  </label>
+  <details class="importStudio__advanced">
+    <summary>Advanced</summary>
+    <div class="filterDrawer__stack">
+      <label class="field"><span class="field__label">Audience</span><input class="input input--compact" id="importAudience" value="<%= cfg.audience || '' %>"></label>
+      <label class="field"><span class="field__label">Region</span><input class="input input--compact" id="importRegion" value="<%= cfg.region || '' %>"></label>
+      <label class="field"><span class="field__label">Category hint</span><input class="input input--compact" id="importCategory" value="<%= cfg.optional_category || '' %>"></label>
+      <label class="field"><span class="field__label">Author</span><input class="input input--compact" id="importAuthor" value="<%= defaultAuthor %>"></label>
+    </div>
+  </details>
+</div>

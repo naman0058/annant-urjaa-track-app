@@ -1,4 +1,5 @@
 -- MySQL schema for MyApp Admin Dashboard (Complete)
+-- Blog CMS tables: see sql/migrations/001_blog_cms.sql (apply via npm run migrate:blog)
 CREATE TABLE IF NOT EXISTS admins (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,

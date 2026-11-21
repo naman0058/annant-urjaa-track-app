@@ -1,0 +1,47 @@
+<%
+  const t = txn;
+  const tx = txDisplay || {};
+  const badge = tx.txStatusBadgeClass ? tx.txStatusBadgeClass(t.status) : 'info';
+  const formatAmount = (amount) => {
+    const n = Number(amount || 0);
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const backHref = typeof returnQs === 'string' && returnQs
+    ? ('/admin/transactions?' + returnQs)
+    : '/admin/transactions';
+%>
+<div class="page" data-transactions data-tx-detail>
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Transaction #<%= t.id %></h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= badge %>"><%= tx.formatTxStatus ? tx.formatTxStatus(t.status) : t.status %></span>
+        · <span class="mono"><%= formatAmount(t.amount) %> <%= t.currency || 'INR' %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to transactions</a>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head">
+      <h3 class="panel__title">Payment details</h3>
+    </div>
+    <div class="panel__body panel__body--tight">
+      <dl class="detailList detailList--grid txDetailList">
+        <div><dt>Order ID</dt><dd class="mono"><%= t.order_id || '—' %></dd></div>
+        <div><dt>Payment ID</dt><dd class="mono"><%= t.payment_id || '—' %></dd></div>
+        <div><dt>Receipt</dt><dd class="mono"><%= t.receipt || '—' %></dd></div>
+        <div><dt>Method</dt><dd><%= t.method || '—' %></dd></div>
+        <div><dt>Customer email</dt><dd>
+          <%= t.email || '—' %>
+          <% if (user) { %> · <a href="/admin/users/<%= user.id %>"><%= user.name %></a><% } %>
+        </dd></div>
+        <div><dt>Created</dt><dd class="mono"><%= tx.formatTxDateTime ? tx.formatTxDateTime(t.created_at) : t.created_at %></dd></div>
+      </dl>
+      <p class="field__hint txDetailNote">Read-only record — amounts are not editable here.</p>
+    </div>
+  </section>
+</div>
+<script src="/js/admin-transactions.js?v=1" defer></script>

@@ -1,0 +1,43 @@
+<%
+  const f = filters || {};
+  const pg = pagination || { limit: 20 };
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Code or member</span>
+      <input class="input input--compact" type="search" name="q" value="<%= f.q || '' %>" placeholder="Code, name, or email" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Status &amp; validity</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status">
+          <option value="all" <%= (f.status||'all')==='all'?'selected':'' %>>Any</option>
+          <option value="active" <%= f.status==='active'?'selected':'' %>>Active</option>
+          <option value="inactive" <%= f.status==='inactive'?'selected':'' %>>Inactive</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Validity</span>
+        <select class="select select--compact" name="valid">
+          <option value="all" <%= (f.valid||'all')==='all'?'selected':'' %>>Any</option>
+          <option value="valid_now" <%= f.valid==='valid_now'?'selected':'' %>>Valid now</option>
+          <option value="upcoming" <%= f.valid==='upcoming'?'selected':'' %>>Upcoming</option>
+          <option value="expired" <%= f.valid==='expired'?'selected':'' %>>Expired</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [10,20,50,100].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit || pg.limit || 20)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+</div>

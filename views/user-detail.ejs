@@ -1,0 +1,133 @@
+<%
+  const u = user || {};
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const fmtDateTime = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 16).replace('T', ' '); } catch { return '—'; }
+  };
+  const backHref = returnQs ? ('/admin/users?' + returnQs) : '/admin/users';
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const isSuper = typeof session !== 'undefined' && session.admin && session.admin.role === 'super';
+  const sd = subDisplay || {};
+  const tx = txDisplay || {};
+  const subBadge = (s) => (sd.statusBadgeClass ? sd.statusBadgeClass(s) : 'info');
+  const subLabel = (s) => (sd.formatStatusLabel ? sd.formatStatusLabel(s) : s);
+  const txBadge = (s) => (tx.txStatusBadgeClass ? tx.txStatusBadgeClass(s) : 'info');
+  const txAmount = (a) => '₹' + (Number(a || 0) / 100).toLocaleString('en-IN');
+%>
+<div class="page" data-users data-user-detail data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title"><%= u.name %></h1>
+      <span class="pageHeader__period">
+        <span class="mono">#<%= u.id %></span> · <%= u.email %>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to users</a>
+      <% if (canWrite) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-user-edit
+          data-id="<%= u.id %>"
+          data-name="<%= (u.name||'').replace(/"/g,'&quot;') %>"
+          data-email="<%= (u.email||'').replace(/"/g,'&quot;') %>"
+        >Edit</button>
+        <% if (isSuper) { %>
+          <form method="post" action="/admin/users/<%= u.id %>/delete" class="userDetailDelete" onsubmit="return confirm('Delete this user?');">
+            <%- include('partials/csrf-field') %>
+            <input type="hidden" name="_list_return" value="<%= returnQs || '' %>">
+            <button type="submit" class="btn btn--danger btn--mini">Delete</button>
+          </form>
+        <% } %>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <dl class="detailList detailList--grid userDetailList">
+        <div><dt>Name</dt><dd><%= u.name %></dd></div>
+        <div><dt>Email</dt><dd class="mono"><%= u.email %></dd></div>
+        <div><dt>Joined</dt><dd class="mono"><%= fmtDateTime(u.created_at) %></dd></div>
+        <div><dt>User ID</dt><dd class="mono">#<%= u.id %></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="userDetailGrid">
+    <section class="panel panel--compact">
+      <div class="panel__head panel__head--split">
+        <h3 class="panel__title">Subscriptions</h3>
+        <span class="cellMuted mono"><%= (subscriptions||[]).length %></span>
+      </div>
+      <div class="panel__body userTableBody panel__body--tight<%= (subscriptions||[]).length ? '' : ' panel__body--empty' %>">
+        <% if (!(subscriptions || []).length) { %>
+          <p class="dashEmpty__label">No subscriptions.</p>
+        <% } else { %>
+          <div class="userTableWrap">
+            <table class="table table--dashboard table--compact table--usersList">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Track</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% subscriptions.forEach((s) => { %>
+                  <tr>
+                    <td class="mono"><a href="/admin/subscriptions/<%= s.id %>">#<%= s.id %></a></td>
+                    <td><span class="statusBadge statusBadge--<%= subBadge(s.status) %>"><%= subLabel(s.status) %></span></td>
+                    <td><%= s.track_title || s.track_key || s.track_id || s.track || '—' %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="panel panel--compact">
+      <div class="panel__head panel__head--split">
+        <h3 class="panel__title">Transactions</h3>
+        <span class="cellMuted mono"><%= (transactions||[]).length %></span>
+      </div>
+      <div class="panel__body userTableBody panel__body--tight<%= (transactions||[]).length ? '' : ' panel__body--empty' %>">
+        <% if (!(transactions || []).length) { %>
+          <p class="dashEmpty__label">No transactions for this email.</p>
+        <% } else { %>
+          <div class="userTableWrap">
+            <table class="table table--dashboard table--compact table--usersList">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% transactions.forEach((t) => { %>
+                  <tr>
+                    <td class="mono"><a href="/admin/transactions/<%= t.id %>"><%= t.order_id || '#' + t.id %></a></td>
+                    <td><span class="statusBadge statusBadge--<%= txBadge(t.status) %>"><%= tx.formatTxStatus ? tx.formatTxStatus(t.status) : t.status %></span></td>
+                    <td class="mono"><%= txAmount(t.amount) %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  </div>
+
+  <% if (canWrite) { %>
+    <%- include('partials/admin/users-form-drawer', { formDrawerMode: 'edit' }) %>
+    <input type="hidden" id="userListReturnQs" value="<%= returnQs || '' %>">
+  <% } %>
+</div>
+<script src="/js/admin-users.js?v=1" defer></script>

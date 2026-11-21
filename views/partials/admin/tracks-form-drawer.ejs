@@ -1,0 +1,80 @@
+<%
+  const drawerMode = typeof formDrawerMode !== 'undefined' ? formDrawerMode : 'create';
+  const isEdit = drawerMode === 'edit';
+  const drawerId = isEdit ? 'trackEditDrawer' : 'trackCreateDrawer';
+  const title = isEdit ? 'Edit track' : 'Create track';
+  const formId = isEdit ? 'trackEditForm' : 'trackCreateForm';
+  const action = isEdit ? '/admin/tracks/0' : '/admin/tracks';
+  const cats = categories || [];
+  const defCat = typeof defaultCategoryId !== 'undefined' ? Number(defaultCategoryId) : 0;
+%>
+<div class="filterDrawer trackFormDrawer" id="<%= drawerId %>" aria-hidden="true" data-track-form="<%= drawerMode %>">
+  <div class="filterDrawer__backdrop" data-filter-close></div>
+  <aside class="filterDrawer__panel filterDrawer__panel--form filterDrawer__panel--compact trackFormDrawer__panel" role="dialog" aria-labelledby="<%= drawerId %>Title">
+    <div class="filterDrawer__head">
+      <h2 id="<%= drawerId %>Title" class="filterDrawer__title"><%= title %></h2>
+      <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close">×</button>
+    </div>
+    <form id="<%= formId %>" class="filterDrawer__body filterDrawer__body--compact trackFormDrawer__form" method="post" action="<%= action %>" enctype="multipart/form-data" autocomplete="off">
+      <%- include('../csrf-field') %>
+      <% if (isEdit) { %>
+        <input type="hidden" name="return" id="trackEditReturn" value="<%= typeof listReturnQs !== 'undefined' ? listReturnQs : '' %>">
+      <% } %>
+      <div class="filterDrawer__stack">
+        <label class="field">
+          <span class="field__label">Category</span>
+          <select class="select select--compact" name="category_id" id="<%= isEdit ? 'trackEditCategory' : 'trackCreateCategory' %>" required>
+            <option value="">Select category</option>
+            <% cats.forEach((c) => { %>
+              <option value="<%= c.id %>" <%= (!isEdit && defCat === Number(c.id)) ? 'selected' : '' %>><%= c.name %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Title</span>
+          <input class="input input--compact" type="text" name="title" id="<%= isEdit ? 'trackEditTitle' : 'trackCreateTitle' %>" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Description</span>
+          <input class="input input--compact" type="text" name="description" id="<%= isEdit ? 'trackEditDescription' : 'trackCreateDescription' %>" placeholder="Optional">
+        </label>
+        <div class="fieldGrid fieldGrid--date">
+          <label class="field">
+            <span class="field__label">Price (INR)</span>
+            <input class="input input--compact" type="number" step="0.01" min="0" name="price_inr" id="<%= isEdit ? 'trackEditPrice' : 'trackCreatePrice' %>" required placeholder="0 = Free">
+          </label>
+          <label class="field">
+            <span class="field__label">Status</span>
+            <select class="select select--compact" name="status" id="<%= isEdit ? 'trackEditStatus' : 'trackCreateStatus' %>">
+              <option value="active" <%= !isEdit ? 'selected' : '' %>>Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+        </div>
+        <% if (!isEdit) { %>
+          <label class="field">
+            <span class="field__label">MP3</span>
+            <input class="input input--compact" type="file" name="mp3" accept=".mp3,audio/mpeg">
+          </label>
+        <% } else { %>
+          <div class="trackFormMediaHint cellMuted" id="trackEditMediaHint"></div>
+          <label class="field">
+            <span class="field__label">Replace MP3</span>
+            <input class="input input--compact" type="file" name="mp3" accept=".mp3,audio/mpeg">
+          </label>
+        <% } %>
+        <label class="field">
+          <span class="field__label"><%= isEdit ? 'Replace thumbnail' : 'Thumbnail' %></span>
+          <input class="input input--compact" type="file" name="thumb" accept=".png,.jpg,.jpeg,.webp,.gif,.mp4">
+        </label>
+        <% if (isEdit) { %>
+          <img class="trackFormThumbPreview" id="trackEditThumbPreview" alt="" hidden>
+        <% } %>
+      </div>
+    </form>
+    <div class="filterDrawer__foot filterDrawer__foot--compact">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-close>Close</button>
+      <button type="submit" class="btn btn--primary btn--mini" form="<%= formId %>"><%= isEdit ? 'Save' : 'Create' %></button>
+    </div>
+  </aside>
+</div>

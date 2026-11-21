@@ -1,0 +1,56 @@
+<%
+  const f = filters || {};
+  const qsFn = typeof qsBase === 'function' ? qsBase : () => '';
+  const csvQs = qsFn();
+  const returnQs = typeof listReturnQs !== 'undefined' ? listReturnQs : csvQs.replace(/^\?/, '');
+  const manage = typeof canManageStaff !== 'undefined' ? canManageStaff : false;
+%>
+<div class="page" data-staff data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Staff &amp; roles</h1>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-open="staffFilters">
+        Filters<% if (activeFilterCount > 0) { %> (<%= activeFilterCount %>)<% } %>
+      </button>
+      <a class="btn btn--ghost btn--mini" href="/admin/staff.csv<%= csvQs %>">Export</a>
+      <% if (manage) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-filter-open="staffCreateDrawer">Add staff</button>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact staffDataTable">
+    <%- include('partials/admin/staff-table', {
+      staff, filters: f, pagination, datasetEmpty, qsBase: qsFn, listReturnQs: returnQs, canManageStaff: manage
+    }) %>
+  </section>
+
+  <form id="staffFiltersForm" method="get" action="/admin/staff">
+    <input type="hidden" name="page" value="1">
+    <div class="filterDrawer" id="staffFilters" aria-hidden="true">
+      <div class="filterDrawer__backdrop" data-filter-close></div>
+      <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-modal="true" aria-labelledby="staffFiltersTitle">
+        <div class="filterDrawer__head">
+          <h2 id="staffFiltersTitle" class="filterDrawer__title">Filters</h2>
+          <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close filters">×</button>
+        </div>
+        <div class="filterDrawer__body filterDrawer__body--compact">
+          <%- include('partials/admin/staff-filter-drawer', { filters: f }) %>
+        </div>
+        <div class="filterDrawer__foot filterDrawer__foot--compact">
+          <a class="btn btn--ghost btn--mini" href="/admin/staff">Reset</a>
+          <button type="submit" class="btn btn--primary btn--mini">Apply</button>
+        </div>
+      </aside>
+    </div>
+  </form>
+
+  <% if (manage) { %>
+    <%- include('partials/admin/staff-form-drawer', { formDrawerMode: 'create' }) %>
+    <%- include('partials/admin/staff-form-drawer', { formDrawerMode: 'edit' }) %>
+    <input type="hidden" id="staffListReturnQs" value="<%= returnQs %>">
+  <% } %>
+</div>
+<script src="/js/admin-staff.js?v=1" defer></script>

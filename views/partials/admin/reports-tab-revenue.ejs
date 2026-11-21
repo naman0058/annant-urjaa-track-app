@@ -1,0 +1,16 @@
+<% const inr = (p) => '₹' + (Number(p||0)/100).toLocaleString('en-IN'); %>
+<section class="statGrid">
+  <div class="statCard"><div class="statCard__label">Captured revenue</div><div class="statCard__value"><%= inr(st.salesAmount) %></div></div>
+  <div class="statCard"><div class="statCard__label">Refunded</div><div class="statCard__value"><%= inr(st.refundedAmount) %></div></div>
+  <div class="statCard"><div class="statCard__label">Transactions</div><div class="statCard__value"><%= st.transactionCount %></div></div>
+</section>
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">Revenue performance</h3></div>
+  <div class="panel__body panel__body--chart panel__body--chart--revenue" id="reportsRevenueWrap">
+    <canvas id="reportsRevenueChart"></canvas>
+    <div class="chartEmpty dashEmpty" id="reportsRevenueEmpty" hidden role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">₹</span>
+      <p class="dashEmpty__label">No captured revenue in this period.</p>
+    </div>
+  </div>
+</section>

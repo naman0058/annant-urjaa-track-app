@@ -1,0 +1,91 @@
+<%
+  const t = track || {};
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const mediaSrc = (p) => {
+    if (!p) return '';
+    if (String(p).startsWith('http')) return p;
+    return '/' + String(p).replace(/^\/+/, '');
+  };
+  const priceInr = (Number(t.price_paise || 0) / 100).toFixed(2);
+  const formatInr = () => {
+    const n = Number(t.price_paise || 0) / 100;
+    if (n <= 0) return 'Free';
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  };
+  const typeLabel = Number(t.price_paise || 0) <= 0 ? 'Free' : 'Premium';
+  const backHref = typeof returnQs === 'string' && returnQs ? ('/admin/tracks?' + returnQs) : '/admin/tracks';
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const isSuper = typeof session !== 'undefined' && session.admin && session.admin.role === 'super';
+  const thumb = mediaSrc(t.thumbnail_path);
+  const audio = mediaSrc(t.mp3_path);
+%>
+<div class="page" data-tracks data-track-detail data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title"><%= t.title %></h1>
+      <span class="pageHeader__period">
+        <span class="statusBadge statusBadge--<%= t.status === 'active' ? 'success' : 'danger' %>"><%= t.status %></span>
+        · <span class="trackTypePill trackTypePill--<%= typeLabel === 'Free' ? 'free' : 'premium' %>"><%= typeLabel %></span>
+        · <span class="mono"><%= formatInr() %></span>
+      </span>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--ghost btn--mini" href="<%= backHref %>">Back to list</a>
+      <a class="btn btn--ghost btn--mini" href="/admin/tracks?category_id=<%= t.category_id %>">Category</a>
+      <% if (canWrite) { %>
+        <button type="button" class="btn btn--primary btn--mini" data-track-edit
+          data-id="<%= t.id %>"
+          data-category-id="<%= t.category_id %>"
+          data-title="<%= (t.title || '').replace(/"/g,'&quot;') %>"
+          data-description="<%= (t.description || '').replace(/"/g,'&quot;') %>"
+          data-price-inr="<%= priceInr %>"
+          data-status="<%= t.status %>"
+          data-thumb="<%= thumb.replace(/"/g,'&quot;') %>"
+          data-has-mp3="<%= t.mp3_path ? '1' : '0' %>"
+          data-return="detail"
+        >Edit</button>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact">
+    <div class="panel__head"><h3 class="panel__title">Overview</h3></div>
+    <div class="panel__body panel__body--tight">
+      <div class="trackDetailHero">
+        <% if (thumb) { %>
+          <img class="trackDetailThumb" src="<%= thumb %>" alt="">
+        <% } else { %>
+          <div class="trackDetailThumb trackDetailThumb--empty" aria-hidden="true">No art</div>
+        <% } %>
+        <dl class="detailList detailList--grid trackDetailList">
+          <div><dt>Title</dt><dd><%= t.title %></dd></div>
+          <div><dt>Category</dt><dd><a href="/admin/categories/<%= t.category_id %>"><%= t.category_name %></a></dd></div>
+          <div><dt>Description</dt><dd><%= t.description || '—' %></dd></div>
+          <div><dt>Sort order</dt><dd class="mono"><%= t.sort_order != null ? t.sort_order : '—' %></dd></div>
+          <div><dt>Created</dt><dd class="mono"><%= fmt(t.created_at) %></dd></div>
+        </dl>
+      </div>
+      <% if (audio) { %>
+        <div class="trackDetailAudio">
+          <span class="field__label">Preview</span>
+          <audio controls preload="metadata" src="<%= audio %>"></audio>
+        </div>
+      <% } %>
+      <% if (isSuper) { %>
+        <form method="post" action="/admin/tracks/<%= t.id %>/delete" class="trackDetailDelete" onsubmit="return confirm('Delete this track permanently?');">
+          <%- include('partials/csrf-field') %>
+          <input type="hidden" name="return" value="list">
+          <button type="submit" class="btn btn--danger btn--mini">Delete permanently</button>
+        </form>
+      <% } %>
+    </div>
+  </section>
+
+  <% if (canWrite) { %>
+    <%- include('partials/admin/tracks-form-drawer', { formDrawerMode: 'edit', categories, listReturnQs: typeof returnQs === 'string' ? returnQs : '' }) %>
+  <% } %>
+</div>
+<script src="/js/admin-tracks.js?v=1" defer></script>

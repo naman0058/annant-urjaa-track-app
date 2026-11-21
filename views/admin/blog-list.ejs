@@ -1,0 +1,82 @@
+<%
+  const f = filters || {};
+  const FILTER_KEYS = ['q', 'status', 'sort', 'dir', 'limit'];
+  const activeCount = (() => {
+    if (typeof activeFilterCount === 'number') return activeFilterCount;
+    let n = 0;
+    if (String(f.q || '').trim()) n++;
+    if (f.status && f.status !== 'all') n++;
+    if (f.sort && f.sort !== 'updated_at') n++;
+    if (f.dir && f.dir !== 'desc') n++;
+    if (f.limit && Number(f.limit) !== 20) n++;
+    return n;
+  })();
+  const qsBase = (extra) => {
+    const merged = { ...f, ...(extra || {}) };
+    const p = new URLSearchParams();
+    FILTER_KEYS.forEach((k) => {
+      const v = merged[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        if (k === 'status' && v === 'all') return;
+        p.set(k, String(v).trim());
+      }
+    });
+    if (merged.page) p.set('page', merged.page);
+    const s = p.toString();
+    return s ? ('?' + s) : '';
+  };
+  const listReturnQs = qsBase().replace(/^\?/, '');
+  const canWrite = typeof session !== 'undefined' && session.admin && ['super', 'manager'].includes(session.admin.role);
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+%>
+<div class="page" data-blog data-csrf="<%= csrfToken %>">
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Blog</h1>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <button type="button" class="btn btn--ghost btn--mini" data-filter-open="blogFilters">
+        Filters<% if (activeCount > 0) { %> (<%= activeCount %>)<% } %>
+      </button>
+      <% if (canWrite && ba.importCsv) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/blog/import">Import</a>
+      <% } %>
+      <% if (canWrite && ba.ai) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/blog/ai">AI<% if (queuedAi) { %> (<%= queuedAi %>)<% } %></a>
+      <% } %>
+      <% if (canWrite && ba.trash) { %>
+        <a class="btn btn--ghost btn--mini" href="/admin/blog/trash">Trash</a>
+      <% } %>
+      <% if (canWrite && ba.newPost) { %>
+        <a class="btn btn--primary btn--mini" href="/admin/blog/new">New post</a>
+      <% } %>
+    </div>
+  </header>
+
+  <section class="panel panel--compact blogDataTable">
+    <%- include('../partials/admin/blog-table', {
+      posts, filters: f, pagination, datasetEmpty, qsBase, listReturnQs, canWrite, activeFilterCount: activeCount, queuedAi, blogAdmin: ba
+    }) %>
+  </section>
+
+  <form id="blogFiltersForm" method="get" action="/admin/blog">
+    <input type="hidden" name="page" value="1">
+    <div class="filterDrawer" id="blogFilters" aria-hidden="true">
+      <div class="filterDrawer__backdrop" data-filter-close></div>
+      <aside class="filterDrawer__panel filterDrawer__panel--compact" role="dialog" aria-modal="true" aria-labelledby="blogFiltersTitle">
+        <div class="filterDrawer__head">
+          <h2 id="blogFiltersTitle" class="filterDrawer__title">Filters</h2>
+          <button type="button" class="btn btn--ghost btn--mini btn--icon" data-filter-close aria-label="Close filters">×</button>
+        </div>
+        <div class="filterDrawer__body filterDrawer__body--compact">
+          <%- include('../partials/admin/blog-filter-drawer', { filters: f, pagination }) %>
+        </div>
+        <div class="filterDrawer__foot filterDrawer__foot--compact">
+          <a class="btn btn--ghost btn--mini" href="/admin/blog">Reset</a>
+          <button type="submit" class="btn btn--primary btn--mini">Apply</button>
+        </div>
+      </aside>
+    </div>
+  </form>
+</div>
+<script src="/js/admin-blog.js?v=1" defer></script>

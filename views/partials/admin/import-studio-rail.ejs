@@ -1,0 +1,24 @@
+<aside class="importStudio__rail" aria-label="Import workspace">
+  <div class="importStudio__railCard">
+    <h2 class="importStudio__railTitle">Workspace</h2>
+    <nav class="importStudio__railNav">
+      <a class="importStudio__railLink" href="/admin/blogs/jobs">Import history</a>
+      <% if (typeof blogAdmin !== 'undefined' && blogAdmin.cmsEnabled) { %>
+        <a class="importStudio__railLink" href="/admin/blog">Blog CMS</a>
+      <% } %>
+    </nav>
+  </div>
+  <div class="importStudio__railCard" id="importRailSourceCard" hidden>
+    <h2 class="importStudio__railTitle">Source</h2>
+    <p class="importStudio__railValue mono" id="importRailSource">—</p>
+    <p class="importStudio__railMeta cellMuted" id="importRailSourceMeta"></p>
+  </div>
+  <div class="importStudio__railCard importStudio__railCard--muted">
+    <h2 class="importStudio__railTitle">Job checklist</h2>
+    <ol class="importStudio__railSteps" id="importRailSteps">
+      <% ['Scan folder','Select files','AI settings','Cost estimate','Start job'].forEach((label, i) => { %>
+        <li class="importStudio__railStep" data-rail-step="<%= i + 1 %>"><span class="importStudio__railStepMark"></span><%= label %></li>
+      <% }) %>
+    </ol>
+  </div>
+</aside>

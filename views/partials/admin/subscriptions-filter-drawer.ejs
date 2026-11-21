@@ -1,0 +1,101 @@
+<%
+  const f = filters || {};
+  const tracks = trackOptions || [];
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">General</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Status</span>
+        <select class="select select--compact" name="status">
+          <option value="">Any</option>
+          <option value="active" <%= f.status==='active'?'selected':'' %>>Active</option>
+          <option value="expired" <%= f.status==='expired'?'selected':'' %>>Expired</option>
+          <option value="cancelled" <%= f.status==='cancelled'?'selected':'' %>>Cancelled</option>
+        </select>
+      </label>
+      <% if (hasTrackId && tracks.length) { %>
+        <label class="field">
+          <span class="field__label">Track</span>
+          <select class="select select--compact" name="track">
+            <option value="">Any</option>
+            <% tracks.forEach((t) => { %>
+              <option value="<%= t.id %>" <%= String(f.track)===String(t.id)?'selected':'' %>><%= t.title %></option>
+            <% }) %>
+          </select>
+        </label>
+      <% } else { %>
+        <label class="field">
+          <span class="field__label">Track</span>
+          <input class="input input--compact" type="text" name="track" value="<%= f.track || '' %>" placeholder="Name or ID">
+        </label>
+      <% } %>
+    </div>
+    <label class="field">
+      <span class="field__label">Member</span>
+      <input type="hidden" name="user_id" id="subFilterUserId" value="<%= f.user_id || '' %>">
+      <div class="lookupWrap">
+        <input class="input input--compact" type="search" id="subFilterUserSearch" placeholder="Search name or email" autocomplete="off" value="">
+        <div class="lookupDropdown" id="subFilterUserResults" hidden></div>
+      </div>
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Sort &amp; page</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Sort by</span>
+        <select class="select select--compact" name="sort">
+          <option value="created_at" <%= f.sort==='created_at'?'selected':'' %>>Created</option>
+          <option value="start_date" <%= f.sort==='start_date'?'selected':'' %>>Start</option>
+          <option value="end_date" <%= f.sort==='end_date'?'selected':'' %>>End</option>
+          <option value="status" <%= f.sort==='status'?'selected':'' %>>Status</option>
+          <option value="user_name" <%= f.sort==='user_name'?'selected':'' %>>Member</option>
+          <% if (hasTrackId) { %><option value="track_id" <%= f.sort==='track_id'?'selected':'' %>>Track</option><% } %>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Direction</span>
+        <select class="select select--compact" name="dir">
+          <option value="desc" <%= f.dir==='desc'?'selected':'' %>>Newest first</option>
+          <option value="asc" <%= f.dir==='asc'?'selected':'' %>>Oldest first</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [10,20,50,100].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit||20)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+  <details class="filterDrawer__advanced">
+    <summary>Date ranges</summary>
+    <div class="filterDrawer__advancedBody">
+      <label class="field">
+        <span class="field__label">Created</span>
+        <div class="fieldGrid fieldGrid--date">
+          <input class="input input--compact" type="date" name="from" value="<%= f.from || '' %>" aria-label="Created from">
+          <input class="input input--compact" type="date" name="to" value="<%= f.to || '' %>" aria-label="Created to">
+        </div>
+      </label>
+      <label class="field">
+        <span class="field__label">Start</span>
+        <div class="fieldGrid fieldGrid--date">
+          <input class="input input--compact" type="date" name="start_from" value="<%= f.start_from || '' %>" aria-label="Start from">
+          <input class="input input--compact" type="date" name="start_to" value="<%= f.start_to || '' %>" aria-label="Start to">
+        </div>
+      </label>
+      <label class="field">
+        <span class="field__label">End</span>
+        <div class="fieldGrid fieldGrid--date">
+          <input class="input input--compact" type="date" name="end_from" value="<%= f.end_from || '' %>" aria-label="End from">
+          <input class="input input--compact" type="date" name="end_to" value="<%= f.end_to || '' %>" aria-label="End to">
+        </div>
+      </label>
+    </div>
+  </details>
+</div>

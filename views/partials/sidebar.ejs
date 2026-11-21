@@ -1,17 +1,98 @@
-<aside class="sidebar">
-  <div class="brand">MyApp Admin</div>
-  <div class="admin" style="margin-bottom:14px; color: var(--textMuted);">
-    <small><%= (session && session.admin && session.admin.email) ? session.admin.email : '' %>
-    <%= (session && session.admin) ? '('+session.admin.role+')' : '' %></small>
+<%
+  const path = (typeof adminPath !== 'undefined' && adminPath) ? adminPath : '';
+  const isActive = (p) => path === p || (p !== '/dashboard' && path.startsWith(p));
+  const adminUser = (session && session.admin) ? session.admin : null;
+  const role = adminUser ? adminUser.role : 'viewer';
+%>
+<aside class="admin-sidebar" id="adminSidebar" aria-label="Admin navigation">
+  <div class="admin-sidebar__brand">
+    <div class="admin-sidebar__logo" aria-hidden="true">iT</div>
+    <div class="admin-sidebar__meta">
+      <h1 class="admin-sidebar__title">iTorus Admin</h1>
+      <p class="admin-sidebar__tagline">Executive back-office</p>
+    </div>
   </div>
-  <nav>
-    <a href="/admin/dashboard" class="nav">Dashboard</a>
-    <a href="/admin/masters" class="nav">Masters Management</a>
-    <a href="/admin/users" class="nav">User Management</a>
-    <a href="/admin/subscriptions" class="nav">Subscription Report</a>
-    <a href="/admin/transactions" class="nav">Transaction Report</a>
-     <a href="/admin/categories" class="nav">Categories</a>
-  <a href="/admin/tracks" class="nav">Play Tracks</a>
-    <a href="/admin/logout" class="nav logout">Logout</a>
+
+  <% if (adminUser) { %>
+    <div class="admin-sidebar__user">
+      <strong><%= adminUser.name || 'Administrator' %></strong>
+      <span><%= adminUser.email %></span>
+      <span class="admin-sidebar__role"><%= role %></span>
+    </div>
+  <% } %>
+
+  <nav class="admin-nav">
+    <span class="admin-nav__label">Overview</span>
+    <a href="/admin/dashboard" class="admin-nav__link <%= isActive('/dashboard') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">◫</span>
+      Dashboard
+    </a>
+    <a href="/admin/reports" class="admin-nav__link <%= isActive('/reports') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">▤</span>
+      Reports
+    </a>
+
+    <span class="admin-nav__label">Operations</span>
+    <a href="/admin/subscriptions" class="admin-nav__link <%= isActive('/subscriptions') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">◎</span>
+      Subscriptions
+    </a>
+    <a href="/admin/transactions" class="admin-nav__link <%= isActive('/transactions') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">₹</span>
+      Transactions
+    </a>
+    <a href="/admin/masters" class="admin-nav__link <%= isActive('/masters') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">✦</span>
+      Master Codes
+    </a>
+
+    <span class="admin-nav__label">Catalog</span>
+    <a href="/admin/categories" class="admin-nav__link <%= isActive('/categories') && !path.startsWith('/blog') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">▤</span>
+      Categories
+    </a>
+    <a href="/admin/tracks" class="admin-nav__link <%= isActive('/tracks') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">♫</span>
+      Play Tracks
+    </a>
+
+    <% const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {}; %>
+    <% if (ba.cmsEnabled) { %>
+      <span class="admin-nav__label">Content</span>
+      <a href="/admin/blog" class="admin-nav__link <%= path.startsWith('/blog') && !path.includes('/categories') ? 'is-active' : '' %>">
+        <span class="admin-nav__icon" aria-hidden="true">✎</span>
+        Blog CMS
+      </a>
+    <% } %>
+    <% if (ba.folderImportEnabled) { %>
+      <% if (!ba.cmsEnabled) { %><span class="admin-nav__label">Content</span><% } %>
+      <a href="/admin/blogs/import" class="admin-nav__link <%= isActive('/blogs') ? 'is-active' : '' %>">
+        <span class="admin-nav__icon" aria-hidden="true">⬇</span>
+        Folder import
+      </a>
+    <% } %>
+
+    <span class="admin-nav__label">People</span>
+    <a href="/admin/users" class="admin-nav__link <%= isActive('/users') ? 'is-active' : '' %>">
+      <span class="admin-nav__icon" aria-hidden="true">👤</span>
+      Users
+    </a>
+
+    <span class="admin-nav__label">Administration</span>
+    <% if (['super','manager'].includes(role)) { %>
+      <a href="/admin/staff" class="admin-nav__link <%= isActive('/staff') ? 'is-active' : '' %>">
+        <span class="admin-nav__icon" aria-hidden="true">⚙</span>
+        Staff &amp; roles
+      </a>
+      <a href="/admin/audit" class="admin-nav__link <%= isActive('/audit') ? 'is-active' : '' %>">
+        <span class="admin-nav__icon" aria-hidden="true">◷</span>
+        Audit log
+      </a>
+    <% } %>
+
+    <a href="/admin/logout" class="admin-nav__link admin-nav__link--danger">
+      <span class="admin-nav__icon" aria-hidden="true">⎋</span>
+      Sign out
+    </a>
   </nav>
 </aside>

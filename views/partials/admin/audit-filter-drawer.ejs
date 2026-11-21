@@ -1,0 +1,37 @@
+<%
+  const f = filters || {};
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Action</h3>
+    <label class="field">
+      <span class="field__label">Action contains</span>
+      <input class="input input--compact" type="search" name="action" value="<%= f.action || '' %>" placeholder="e.g. post_publish" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Entity</h3>
+    <label class="field">
+      <span class="field__label">Entity type</span>
+      <input class="input input--compact" name="entity_type" value="<%= f.entity_type || '' %>" placeholder="e.g. blog_post, subscription">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Actor</h3>
+    <label class="field">
+      <span class="field__label">Admin email contains</span>
+      <input class="input input--compact" type="search" name="actor" value="<%= f.actor || '' %>" placeholder="email…" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Page size</h3>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [20, 40, 80].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit||40)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+</div>

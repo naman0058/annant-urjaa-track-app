@@ -1,0 +1,14 @@
+<%
+  const phTitle = typeof pageTitle !== 'undefined' ? pageTitle : (typeof title !== 'undefined' ? title : 'Admin');
+  const phDesc = typeof pageDescription !== 'undefined' ? pageDescription : '';
+  const phActions = typeof pageActions !== 'undefined' ? pageActions : '';
+%>
+<header class="pageHeader">
+  <div>
+    <h1 class="pageHeader__title"><%= phTitle %></h1>
+    <% if (phDesc) { %><p class="pageHeader__desc"><%= phDesc %></p><% } %>
+  </div>
+  <% if (phActions) { %>
+    <div class="pageHeader__actions"><%- phActions %></div>
+  <% } %>
+</header>

@@ -1,0 +1,16 @@
+<div class="page" data-blog-import data-import-history>
+  <header class="pageHeader pageHeader--compact">
+    <div>
+      <h1 class="pageHeader__title">Import History</h1>
+      <p class="pageHeader__period cellMuted">Previous AI folder import jobs</p>
+    </div>
+    <div class="pageHeader__actions dashToolbar">
+      <a class="btn btn--primary btn--mini" href="/admin/blogs/import">New import</a>
+      <a class="btn btn--ghost btn--mini" href="/admin/blog">Blog CMS</a>
+    </div>
+  </header>
+
+  <section class="panel panel--compact blogImportDataTable">
+    <%- include('../partials/admin/import-jobs-table', { jobs, pagination }) %>
+  </section>
+</div>

@@ -1,0 +1,70 @@
+<%
+  const inr = (p) => '₹' + (Number(p || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  const subsRows = topTracks || [];
+  const revRows = revenueByTrack || [];
+%>
+<% if (revenueByTrackAvailable) { %>
+<section class="panel">
+  <div class="panel__head panel__head--split">
+    <h3 class="panel__title">Captured revenue by track</h3>
+    <a class="btn btn--ghost btn--mini" href="<%= qsTab('tracks') %>">Refresh</a>
+  </div>
+  <div class="panel__body panel__body--tight">
+    <% if (!revRows.length) { %>
+      <div class="rankingsEmpty">No captured revenue attributed to tracks in this period.</div>
+    <% } else { %>
+      <table class="table table--dashboard table--compact">
+        <thead>
+          <tr><th>Track</th><th class="col-amount">Captured revenue</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% revRows.forEach((r) => { %>
+            <tr>
+              <td><%= r.title || r.track_id %></td>
+              <td class="mono col-amount"><%= inr(r.revenue_paise) %></td>
+              <td><a class="btn btn--ghost btn--mini" href="/admin/transactions<%= qsBase({ track: r.track_id }) %>">Transactions</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</section>
+<% } else { %>
+<p class="field__hint" style="padding:0 4px 12px;">Revenue-by-track requires a populated <code>transactions.track_id</code> column.</p>
+<% } %>
+
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">New subscriptions by track (period)</h3></div>
+  <div class="panel__body panel__body--tight">
+    <% if (!subsRows.length || !subsRows.some((r) => Number(r.cnt) > 0)) { %>
+      <div class="rankingsEmpty">No new subscriptions for tracks in this period. Revenue may still exist without new subs.</div>
+    <% } else { %>
+      <table class="table table--dashboard table--compact">
+        <thead>
+          <tr><th>Track</th><th class="mono">New subs</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% subsRows.forEach((r) => { %>
+            <tr>
+              <td><%= r.title || r.track_id %></td>
+              <td class="mono"><%= r.cnt %></td>
+              <td><a class="btn btn--ghost btn--mini" href="/admin/subscriptions<%= qsBase({ track: r.track_id }) %>">View</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">Top performing tracks</h3></div>
+  <div class="panel__body panel__body--chart panel__body--chart-short" id="reportsTopTracksWrap">
+    <canvas id="reportsTopTracksChart"></canvas>
+    <div class="chartEmpty dashEmpty" id="reportsTopTracksEmpty" hidden role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">▣</span>
+      <p class="dashEmpty__label" data-empty-msg>No track activity in this period.</p>
+    </div>
+  </div>
+</section>

@@ -12,8 +12,17 @@
     return _base + '?' + params.toString();
   };
 %>
-<div class="pagination">
-  <a class="btn" href="<%= makeUrl(Math.max(1, current-1)) %>">Prev</a>
-  <span>Page <strong><%= current %></strong> of <strong><%= totalPages %></strong></span>
-  <a class="btn" href="<%= makeUrl(Math.min(totalPages, current+1)) %>">Next</a>
-</div>
+<nav class="admin-pager" aria-label="Pagination">
+  <span class="admin-pager__meta">
+    Page <strong><%= current %></strong> of <strong><%= totalPages %></strong>
+    · <%= pagination.total %> records
+  </span>
+  <div class="admin-pager__actions">
+    <a class="btn btn--ghost btn--mini <%= current <= 1 ? 'disabled' : '' %>"
+       href="<%= current <= 1 ? '#' : makeUrl(Math.max(1, current - 1)) %>"
+       aria-disabled="<%= current <= 1 %>">Previous</a>
+    <a class="btn btn--ghost btn--mini <%= current >= totalPages ? 'disabled' : '' %>"
+       href="<%= current >= totalPages ? '#' : makeUrl(Math.min(totalPages, current + 1)) %>"
+       aria-disabled="<%= current >= totalPages %>">Next</a>
+  </div>
+</nav>

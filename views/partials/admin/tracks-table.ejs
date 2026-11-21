@@ -1,0 +1,158 @@
+<%
+  const rows = tracks || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0 };
+  const totalPages = Math.max(1, Math.ceil((pg.total || 0) / (pg.limit || 20)));
+  const hasRows = rows.length > 0;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/tracks/' + id + ret;
+  const fmt = (d) => {
+    if (!d) return '—';
+    try { return new Date(d).toISOString().slice(0, 10); } catch { return '—'; }
+  };
+  const mediaSrc = (p) => {
+    if (!p) return '';
+    if (String(p).startsWith('http')) return p;
+    return '/' + String(p).replace(/^\/+/, '');
+  };
+  const formatInr = (paise) => {
+    const n = Number(paise || 0) / 100;
+    if (n <= 0) return 'Free';
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  };
+  const trackType = (paise) => (Number(paise || 0) <= 0 ? 'Free' : 'Premium');
+  const showOrder = Number(selectedCategoryId || 0) > 0;
+%>
+<div class="panel__body trackTableBody<%= hasRows ? '' : ' panel__body--empty panel__body--emptyTrack' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty dashEmpty--track" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">✦</span>
+      <% if (datasetEmpty) { %>
+        <h2 class="dashEmpty__title">No tracks yet</h2>
+        <p class="dashEmpty__desc">Upload audio, assign a category, and set free or premium pricing.</p>
+        <% if (canWrite) { %>
+          <div class="dashEmpty__actions">
+            <button type="button" class="btn btn--primary btn--mini" data-filter-open="trackCreateDrawer">Create track</button>
+          </div>
+        <% } %>
+      <% } else { %>
+        <h2 class="dashEmpty__title">No matching tracks</h2>
+        <p class="dashEmpty__desc">
+          <% if (typeof activeFilterCount === 'number' && activeFilterCount > 0) { %>
+            <%= activeFilterCount %> filter<%= activeFilterCount === 1 ? '' : 's' %> applied.
+          <% } else { %>
+            Try different category, type, or date filters.
+          <% } %>
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/tracks">Clear filters</a>
+          <button type="button" class="btn btn--primary btn--mini" data-filter-open="trackFilters">Adjust filters</button>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="trackTableWrap">
+      <table class="table table--dashboard table--compact table--trackList" id="trackTable">
+        <thead>
+          <tr>
+            <% if (showOrder) { %><th scope="col" class="col-order">#</th><% } %>
+            <th scope="col" class="col-thumb"><span class="sr-only">Thumbnail</span></th>
+            <th scope="col">Track</th>
+            <th scope="col">Category</th>
+            <th scope="col">Type</th>
+            <th scope="col" class="col-amount">Price</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((t) => {
+            const src = mediaSrc(t.thumbnail_path);
+            const priceInr = (Number(t.price_paise || 0) / 100).toFixed(2);
+          %>
+            <tr data-track-row="<%= t.id %>">
+              <% if (showOrder) { %>
+                <td class="mono col-order"><%= t.sort_order != null ? t.sort_order : '—' %></td>
+              <% } %>
+              <td class="col-thumb">
+                <% if (src) { %>
+                  <img class="trackThumb" src="<%= src %>" alt="" width="36" height="36" loading="lazy">
+                <% } else { %>
+                  <span class="trackThumb trackThumb--empty" aria-hidden="true">—</span>
+                <% } %>
+              </td>
+              <td class="col-name">
+                <a class="trackNameLink" href="<%= detailHref(t.id) %>" title="<%= t.title %>"><%= t.title %></a>
+              </td>
+              <td class="col-category">
+                <a class="cellMuted" href="/admin/tracks?category_id=<%= t.category_id %>"><%= t.category_name %></a>
+              </td>
+              <td><span class="trackTypePill trackTypePill--<%= trackType(t.price_paise) === 'Free' ? 'free' : 'premium' %>"><%= trackType(t.price_paise) %></span></td>
+              <td class="mono col-amount"><%= formatInr(t.price_paise) %></td>
+              <td>
+                <span class="statusBadge statusBadge--<%= t.status === 'active' ? 'success' : 'danger' %>"><%= t.status %></span>
+              </td>
+              <td class="mono col-date"><%= fmt(t.created_at) %></td>
+              <td class="col-actions">
+                <details class="rowMenu" data-row-menu>
+                  <summary class="btn btn--ghost btn--mini" aria-label="Actions for <%= t.title %>">•••</summary>
+                  <div class="rowMenu__panel">
+                    <ul class="rowMenu__list">
+                      <li><a href="<%= detailHref(t.id) %>">View</a></li>
+                      <% if (canWrite) { %>
+                        <li>
+                          <button type="button" class="rowMenu__btn" data-track-edit
+                            data-id="<%= t.id %>"
+                            data-category-id="<%= t.category_id %>"
+                            data-title="<%= (t.title || '').replace(/"/g,'&quot;') %>"
+                            data-description="<%= (t.description || '').replace(/"/g,'&quot;') %>"
+                            data-price-inr="<%= priceInr %>"
+                            data-status="<%= t.status %>"
+                            data-thumb="<%= src.replace(/"/g,'&quot;') %>"
+                            data-has-mp3="<%= t.mp3_path ? '1' : '0' %>"
+                          >Edit</button>
+                        </li>
+                        <% if (isSuper) { %>
+                          <li>
+                            <form method="post" action="/admin/tracks/<%= t.id %>/delete" class="rowMenu__form" onsubmit="return confirm('Delete this track permanently?');">
+                              <%- include('../csrf-field') %>
+                              <input type="hidden" name="return" value="<%= listReturnQs || '' %>">
+                              <button type="submit" class="rowMenu__btn rowMenu__btn--danger">Delete</button>
+                            </form>
+                          </li>
+                        <% } %>
+                      <% } %>
+                    </ul>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Tracks pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/tracks<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= totalPages %></span>
+          <% if (pg.page < totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/tracks<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

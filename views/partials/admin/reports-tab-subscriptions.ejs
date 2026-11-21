@@ -1,0 +1,24 @@
+<section class="statGrid">
+  <div class="statCard"><div class="statCard__label">New in period</div><div class="statCard__value"><%= st.subsCount %></div></div>
+  <div class="statCard"><div class="statCard__label">Active now (snapshot)</div><div class="statCard__value"><%= activeSubscriptionsSnapshot %></div></div>
+</section>
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">New subscriptions trend</h3></div>
+  <div class="panel__body panel__body--chart panel__body--chart--bar" id="reportsSubsWrap">
+    <canvas id="reportsSubsChart"></canvas>
+    <div class="chartEmpty dashEmpty" id="reportsSubsEmpty" hidden role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--info" aria-hidden="true">▣</span>
+      <p class="dashEmpty__label">No new subscriptions in this period.</p>
+    </div>
+  </div>
+</section>
+<section class="panel">
+  <div class="panel__head"><h3 class="panel__title">Status in period</h3></div>
+  <div class="panel__body panel__body--tight">
+    <table class="table"><tbody>
+      <% (subscriptionStatusInPeriod||[]).forEach((r) => { %>
+        <tr><td><%= r.status %></td><td class="mono"><%= r.cnt %></td></tr>
+      <% }) %>
+    </tbody></table>
+  </div>
+</section>

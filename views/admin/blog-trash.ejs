@@ -1,0 +1,44 @@
+<div class="page dash">
+  <div class="dash__header">
+    <div>
+      <h2 class="dash__title">Blog trash</h2>
+      <div class="dash__subtitle">Soft-deleted posts are hidden from the site and sitemap. Restore as draft or permanently delete (super).</div>
+    </div>
+    <div class="dash__actions">
+      <a class="btn btn--ghost" href="/admin/blog">← Active posts</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__body panel__body--tight">
+      <table class="table">
+        <thead><tr><th>Title</th><th>Slug</th><th>Trashed</th><th class="tRight">Actions</th></tr></thead>
+        <tbody>
+          <% if (!(posts||[]).length) { %><tr><td colspan="4" class="empty">Trash is empty.</td></tr><% } %>
+          <% (posts||[]).forEach(p => { %>
+            <tr>
+              <td><%= p.title %></td>
+              <td class="mono"><%= p.slug %></td>
+              <td class="mono"><%= p.deleted_at ? new Date(p.deleted_at).toLocaleString() : '—' %></td>
+              <td class="tRight" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+                <form method="post" action="/admin/blog/trash/<%= p.id %>/restore">
+                  <%- include('../partials/csrf-field') %>
+                  <button class="btn btn--gold btn--mini" type="submit">Restore</button>
+                </form>
+                <% if (session && session.admin && session.admin.role === 'super') { %>
+                  <form method="post" action="/admin/blog/trash/<%= p.id %>/purge" onsubmit="return confirm('Permanently delete? This cannot be undone.');">
+                    <%- include('../partials/csrf-field') %>
+                    <button class="btn btn--ghost btn--mini" type="submit">Purge</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <div class="pager">
+        <%- include('../partials/pagination', { pagination, base: '/admin/blog/trash', extra: {} }) %>
+      </div>
+    </div>
+  </div>
+</div>

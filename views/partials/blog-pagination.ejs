@@ -1,0 +1,32 @@
+<% if (pagination && pagination.totalPages > 1) {
+  const page = pagination.page;
+  const totalPages = pagination.totalPages;
+  const build = typeof buildListUrl === 'function' ? buildListUrl : (p) => `/blog?page=${p}`;
+%>
+<nav class="blog-pagination" aria-label="Blog pagination">
+  <% if (page > 1) { %>
+    <a href="<%= build(page - 1) %>" rel="prev">← Previous</a>
+  <% } else { %>
+    <span aria-hidden="true">← Previous</span>
+  <% } %>
+
+  <% for (let i = 1; i <= totalPages; i++) {
+    if (totalPages > 7 && i > 2 && i < totalPages - 1 && Math.abs(i - page) > 1) {
+      if (i === 3 || i === totalPages - 2) { %><span>…</span><% }
+      continue;
+    }
+  %>
+    <% if (i === page) { %>
+      <span class="is-current" aria-current="page"><%= i %></span>
+    <% } else { %>
+      <a href="<%= build(i) %>"><%= i %></a>
+    <% } %>
+  <% } %>
+
+  <% if (page < totalPages) { %>
+    <a href="<%= build(page + 1) %>" rel="next">Next →</a>
+  <% } else { %>
+    <span aria-hidden="true">Next →</span>
+  <% } %>
+</nav>
+<% } %>

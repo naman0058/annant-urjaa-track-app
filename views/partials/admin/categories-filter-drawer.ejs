@@ -1,0 +1,34 @@
+<%
+  const f = filters || {};
+  const pg = pagination || { limit: 20 };
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Name, slug, or description</span>
+      <input class="input input--compact" type="search" name="q" value="<%= f.q || '' %>" placeholder="Search categories" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Catalog</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Thumbnail</span>
+        <select class="select select--compact" name="has_thumb">
+          <option value="all" <%= (f.has_thumb||'all')==='all'?'selected':'' %>>Any</option>
+          <option value="yes" <%= f.has_thumb==='yes'?'selected':'' %>>Has thumbnail</option>
+          <option value="no" <%= f.has_thumb==='no'?'selected':'' %>>Missing thumbnail</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Per page</span>
+        <select class="select select--compact" name="limit">
+          <% [10,20,50,100].forEach((n) => { %>
+            <option value="<%= n %>" <%= Number(f.limit || pg.limit || 20)===n?'selected':'' %>><%= n %></option>
+          <% }) %>
+        </select>
+      </label>
+    </div>
+  </div>
+</div>

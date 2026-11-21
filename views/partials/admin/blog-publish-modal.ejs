@@ -1,0 +1,26 @@
+<%
+  const p = post || {};
+  const isEdit = mode === 'edit' && p.id;
+%>
+<% if (isEdit && p.status !== 'published') { %>
+<div class="blogEditor__modal" id="blogPublishModal" aria-hidden="true" role="dialog" aria-labelledby="blogPublishModalTitle">
+  <div class="blogEditor__modalBackdrop" data-publish-close></div>
+  <div class="blogEditor__modalPanel">
+    <h2 id="blogPublishModalTitle" class="blogEditor__modalTitle">Publish article?</h2>
+    <dl class="blogEditor__publishSummary">
+      <dt>Title</dt>
+      <dd id="blogPublishSummaryTitle"></dd>
+      <dt>URL</dt>
+      <dd id="blogPublishSummarySlug" class="mono"></dd>
+    </dl>
+    <p class="cellMuted">The post will become publicly visible at the URL above.</p>
+    <div class="blogEditor__modalActions">
+      <button type="button" class="btn btn--ghost btn--mini" data-publish-close>Cancel</button>
+      <button type="button" class="btn btn--primary btn--mini" id="blogPublishConfirm">Publish</button>
+    </div>
+    <form id="blogPublishForm" method="post" action="/admin/blog/<%= p.id %>/publish" class="blogEditor__hiddenForm" hidden>
+      <%- include('../csrf-field') %>
+    </form>
+  </div>
+</div>
+<% } %>

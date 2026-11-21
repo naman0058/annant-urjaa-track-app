@@ -1,0 +1,108 @@
+<%
+  const rows = txns || [];
+  const f = filters || {};
+  const pg = pagination || { page: 1, limit: 20, total: 0 };
+  const tx = txDisplay || {};
+  const totalPages = Math.max(1, Math.ceil((pg.total || 0) / (pg.limit || 20)));
+  const hasRows = rows.length > 0;
+  const filteredEmpty = !datasetEmpty && !hasRows;
+  const ret = typeof listReturnQs !== 'undefined' && listReturnQs ? ('?return=' + encodeURIComponent(listReturnQs)) : '';
+  const detailHref = (id) => '/admin/transactions/' + id + ret;
+  const formatAmount = (amount) => {
+    const n = Number(amount || 0);
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const displayCustomerName = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return '—';
+    return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+%>
+<div class="panel__body txTableBody<%= hasRows ? '' : ' panel__body--empty panel__body--emptyTx' %>">
+  <% if (!hasRows) { %>
+    <div class="dashEmpty dashEmpty--tx" role="status">
+      <span class="dashEmpty__icon dashEmpty__icon--gold" aria-hidden="true">₹</span>
+      <% if (datasetEmpty) { %>
+        <h2 class="dashEmpty__title">No transactions yet</h2>
+        <p class="dashEmpty__desc">
+          Payment records appear here when checkout completes or Razorpay captures a charge.
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/dashboard">View dashboard</a>
+        </div>
+      <% } else { %>
+        <h2 class="dashEmpty__title">No matching transactions</h2>
+        <p class="dashEmpty__desc">
+          <% if (typeof activeFilterCount === 'number' && activeFilterCount > 0) { %>
+            <%= activeFilterCount %> filter<%= activeFilterCount === 1 ? '' : 's' %> applied — broaden the date range or clear filters.
+          <% } else { %>
+            Try a wider date range or different status.
+          <% } %>
+        </p>
+        <div class="dashEmpty__actions">
+          <a class="btn btn--ghost btn--mini" href="/admin/transactions">Clear filters</a>
+          <button type="button" class="btn btn--primary btn--mini" data-filter-open="txFilters">Adjust filters</button>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="txTableWrap">
+      <table class="table table--dashboard table--compact table--txList" id="txTable">
+        <thead>
+          <tr>
+            <th scope="col" class="col-date">Created</th>
+            <th scope="col">Order</th>
+            <th scope="col">Customer</th>
+            <th scope="col" class="col-amount">Amount</th>
+            <th scope="col">Status</th>
+            <th scope="col">Method</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach((t) => {
+            const badge = tx.txStatusBadgeClass ? tx.txStatusBadgeClass(t.status) : 'info';
+            const orderShort = tx.shortOrderId ? tx.shortOrderId(t.order_id, 12) : (t.order_id || '—');
+            const when = tx.formatTxDate ? tx.formatTxDate(t.created_at) : t.created_at;
+          %>
+            <tr data-tx-row="<%= t.id %>">
+              <td class="mono col-date"><%= when %></td>
+              <td class="col-order">
+                <a class="mono" href="<%= detailHref(t.id) %>" title="<%= t.order_id || '' %>"><%= orderShort %></a>
+              </td>
+              <td class="col-member">
+                <span class="txCustomerName"><%= displayCustomerName(t.user_name) %></span>
+              </td>
+              <td class="mono col-amount"><%= formatAmount(t.amount) %></td>
+              <td>
+                <span class="statusBadge statusBadge--<%= badge %>"><%= tx.formatTxStatus ? tx.formatTxStatus(t.status) : t.status %></span>
+              </td>
+              <td><span class="cellMuted"><%= t.method || '—' %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (totalPages > 1 || pg.total > rows.length) { %>
+      <div class="reportTxPager" aria-label="Transactions pagination">
+        <span class="reportTxPager__info">
+          <% const from = (pg.page - 1) * pg.limit + 1; %>
+          <% const to = from + rows.length - 1; %>
+          <%= from %>–<%= to %> of <%= pg.total %>
+        </span>
+        <div class="reportTxPager__nav">
+          <% if (pg.page > 1) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/transactions<%= qsBase({ page: pg.page - 1 }) %>">Prev</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Prev</button>
+          <% } %>
+          <span class="reportTxPager__page"><%= pg.page %> / <%= totalPages %></span>
+          <% if (pg.page < totalPages) { %>
+            <a class="btn btn--ghost btn--mini" href="/admin/transactions<%= qsBase({ page: pg.page + 1 }) %>">Next</a>
+          <% } else { %>
+            <button type="button" class="btn btn--ghost btn--mini" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+</div>

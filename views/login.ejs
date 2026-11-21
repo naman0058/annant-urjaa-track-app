@@ -3,32 +3,109 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin Login</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <title>Sign in | Anannt Urjaa Admin</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin-tokens.css">
+  <link rel="stylesheet" href="/css/admin-login.css?v=2">
 </head>
-<body class="bg">
-  <div class="login-card">
-    <h1>Admin Login</h1>
-    <% if (flash.error && flash.error.length) { %>
-      <div class="alert error">
-        <% flash.error.forEach(e => { %><div><%= e %></div><% }) %>
+<body class="admin-app admin-login-page">
+  <header class="admin-login-page__header">
+    <img
+      class="admin-login-page__logo-img"
+      src="/images/footer_logo1.svg"
+      alt="Anannt Urjaa"
+      width="160"
+      height="52"
+      decoding="async"
+    >
+    <p class="admin-login-page__tagline">Admin Control Center</p>
+  </header>
+
+  <section class="admin-login-card" aria-labelledby="loginHeading">
+    <h1 id="loginHeading" class="admin-login-card__title">Welcome back</h1>
+    <p class="admin-login-card__desc">Sign in to your administrative workspace.</p>
+
+    <% const authErrors = (flash && flash.error) ? flash.error : []; %>
+    <% const authSuccess = (flash && flash.success) ? flash.success : []; %>
+    <% if (authErrors.length) { %>
+      <div class="admin-login-alert admin-login-alert--error" role="alert" id="loginServerError">
+        <% authErrors.forEach(function(msg) { %>
+          <div><%= msg %></div>
+        <% }) %>
       </div>
     <% } %>
-    <% if (flash.success && flash.success.length) { %>
-      <div class="alert success">
-        <% flash.success.forEach(e => { %><div><%= e %></div><% }) %>
+    <% if (authSuccess.length) { %>
+      <div class="admin-login-alert admin-login-alert--success" role="status">
+        <% authSuccess.forEach(function(msg) { %><div><%= msg %></div><% }) %>
       </div>
     <% } %>
-    <form method="post" action="/admin/login">
-      <label>Email</label>
-      <input type="email" name="email" required placeholder="you@company.com">
-      <label>Password</label>
-      <input type="password" name="password" required placeholder="••••••••">
-      <button type="submit">Login</button>
+
+    <form
+      id="adminLoginForm"
+      class="admin-login-form"
+      method="post"
+      action="/admin/login"
+      autocomplete="on"
+      novalidate
+    >
+      <div class="admin-login-field">
+        <label class="admin-login-field__label" for="email">Work email</label>
+        <div class="admin-login-field__control">
+          <span class="admin-login-field__icon" aria-hidden="true">@</span>
+          <input
+            class="admin-login-input"
+            id="email"
+            type="email"
+            name="email"
+            required
+            autocomplete="username email"
+            inputmode="email"
+            spellcheck="false"
+            placeholder="you@company.com"
+            aria-describedby="emailError"
+          >
+        </div>
+        <p id="emailError" class="admin-login-field__error" role="alert"></p>
+      </div>
+
+      <div class="admin-login-field">
+        <label class="admin-login-field__label" for="password">Password</label>
+        <div class="admin-login-field__control">
+          <span class="admin-login-field__icon" aria-hidden="true">◆</span>
+          <input
+            class="admin-login-input admin-login-input--password"
+            id="password"
+            type="password"
+            name="password"
+            required
+            minlength="6"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+            aria-describedby="passwordError"
+          >
+          <button
+            type="button"
+            class="admin-login-toggle"
+            id="passwordToggle"
+            aria-label="Show password"
+            aria-pressed="false"
+          >Show</button>
+        </div>
+        <p id="passwordError" class="admin-login-field__error" role="alert"></p>
+      </div>
+
+      <button class="btn-login" type="submit" id="loginSubmit">
+        <span id="loginSubmitLabel">Sign in securely</span>
+        <span aria-hidden="true">→</span>
+      </button>
     </form>
-  </div>
+  </section>
+
+  <footer class="admin-login-footer">Authorized administrators only</footer>
+
+  <script src="/js/admin-login.js?v=1" defer></script>
 </body>
 </html>

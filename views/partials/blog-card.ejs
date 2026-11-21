@@ -1,0 +1,41 @@
+<div class="col-md-6 col-lg-4 d-flex">
+  <article class="blog-card w-100">
+    <div class="blog-card__media-wrap">
+      <% if (p.category_name && p.category_slug) { %>
+        <a
+          href="/blog/category/<%= p.category_slug %>"
+          class="blog-card__category-pill"
+        ><%= p.category_name %></a>
+      <% } %>
+      <% if (p.responsiveImage) { %>
+        <a href="/blog/<%= p.slug %>" class="blog-card__media blog-card__media--has-image" tabindex="-1" aria-hidden="true">
+          <%- include('blog-featured-image', {
+            responsive: p.responsiveImage,
+            alt: p.featured_image_alt || p.title,
+            className: 'blog-card__img',
+            style: '',
+            lazyLoad: true
+          }) %>
+        </a>
+      <% } else { %>
+        <a href="/blog/<%= p.slug %>" class="blog-card__media blog-card__media--empty" aria-hidden="true">
+          <span class="blog-card__media-placeholder" aria-hidden="true">
+            <i class="fa-regular fa-image"></i>
+          </span>
+        </a>
+      <% } %>
+    </div>
+    <div class="blog-card__body">
+      <h2 class="blog-card__title">
+        <a href="/blog/<%= p.slug %>"><%= p.title %></a>
+      </h2>
+      <% if (p.excerpt) { %>
+        <p class="blog-card__excerpt"><%= p.excerpt %></p>
+      <% } %>
+      <a href="/blog/<%= p.slug %>" class="blog-card__read-more">
+        Read article
+        <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+      </a>
+    </div>
+  </article>
+</div>

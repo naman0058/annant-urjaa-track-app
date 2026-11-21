@@ -554,10 +554,15 @@ router.get('/payment/razorpay-success', async (req, res) => {
 
     const { user_id, track_id, status } = rows[0];
 
-    // ✅ Step 3: Prevent duplicate success handling
+    // ✅ Step 3: Prevent duplicate success handling (idempotent; no retroactive linkage)
     if (status === 'captured') {
       return res.json({ msg: 'success', description: 'alreadydone' });
     }
+
+    const {
+      linkCapturedPaymentToSubscription,
+      shouldCreateSubscriptionForTransaction,
+    } = require('../utils/subscriptionPaymentLink');
 
     // ✅ Step 4: Start DB transaction
     await req.db.query('START TRANSACTION');
@@ -573,9 +578,10 @@ router.get('/payment/razorpay-success', async (req, res) => {
       [razorpay_payment_id, razorpay_signature, now, razorpay_order_id]
     );
 
-    // ✅ Step 6: Insert subscription entry (7-day validity)
-    await req.db.query(
-      `
+    // ✅ Step 6: Subscription only when this order has a verified track purchase (not every capture)
+    if (shouldCreateSubscriptionForTransaction(rows[0])) {
+      await req.db.query(
+        `
       INSERT INTO subscriptions
         (user_id, track_id, status, start_date, end_date, created_at, updated_at)
       VALUES
@@ -585,8 +591,15 @@ router.get('/payment/razorpay-success', async (req, res) => {
         end_date = GREATEST(end_date, DATE_ADD(CURDATE(), INTERVAL 7 DAY)),
         updated_at = VALUES(updated_at)
       `,
-      [user_id, track_id, now, now]
-    );
+        [user_id, track_id, now, now]
+      );
+
+      await linkCapturedPaymentToSubscription(req.db, {
+        orderId: razorpay_order_id,
+        userId: user_id,
+        trackId: track_id,
+      });
+    }
 
     // ✅ Step 7: Commit
     await req.db.query('COMMIT');
@@ -917,5 +930,30 @@ router.post(
   }
 );
 
+
+
+router.get("/account/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Optional: delete dependent tables first (if you have)
+    // await pool.promise().query("DELETE FROM orders WHERE user_id = ?", [userId]);
+    // await pool.promise().query("DELETE FROM appointments WHERE user_id = ?", [userId]);
+
+    const [result] = await req.db.query(
+      "DELETE FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json({ message: "Account deleted successfully" });
+  } catch (err) {
+    console.error("DELETE /api/account error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router;

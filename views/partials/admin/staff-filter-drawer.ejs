@@ -1,0 +1,64 @@
+<%
+  const f = filters || {};
+%>
+<div class="filterDrawer__stack">
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Search</h3>
+    <label class="field">
+      <span class="field__label">Name or email</span>
+      <input class="input input--compact" type="search" name="q" value="<%= f.q || '' %>" placeholder="Search…" autocomplete="off">
+    </label>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Role &amp; status</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Role</span>
+        <select class="select select--compact" name="role">
+          <option value="all" <%= (f.role||'all')==='all'?'selected':'' %>>Any</option>
+          <option value="super" <%= f.role==='super'?'selected':'' %>>Super</option>
+          <option value="manager" <%= f.role==='manager'?'selected':'' %>>Manager</option>
+          <option value="viewer" <%= f.role==='viewer'?'selected':'' %>>Viewer</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Active</span>
+        <select class="select select--compact" name="active">
+          <option value="all" <%= (f.active||'all')==='all'?'selected':'' %>>Any</option>
+          <option value="1" <%= f.active==='1'?'selected':'' %>>Active</option>
+          <option value="0" <%= f.active==='0'?'selected':'' %>>Inactive</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <div class="filterDrawer__section">
+    <h3 class="filterDrawer__sectionTitle">Sort &amp; page</h3>
+    <div class="filterDrawer__grid">
+      <label class="field">
+        <span class="field__label">Sort by</span>
+        <select class="select select--compact" name="sort">
+          <option value="created_at" <%= f.sort==='created_at'?'selected':'' %>>Created</option>
+          <option value="name" <%= f.sort==='name'?'selected':'' %>>Name</option>
+          <option value="email" <%= f.sort==='email'?'selected':'' %>>Email</option>
+          <option value="role" <%= f.sort==='role'?'selected':'' %>>Role</option>
+          <option value="id" <%= f.sort==='id'?'selected':'' %>>ID</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Direction</span>
+        <select class="select select--compact" name="dir">
+          <option value="desc" <%= f.dir==='desc'?'selected':'' %>>Newest first</option>
+          <option value="asc" <%= f.dir==='asc'?'selected':'' %>>Oldest first</option>
+        </select>
+      </label>
+    </div>
+    <label class="field">
+      <span class="field__label">Per page</span>
+      <select class="select select--compact" name="limit">
+        <% [10,20,50,100].forEach((n) => { %>
+          <option value="<%= n %>" <%= Number(f.limit||20)===n?'selected':'' %>><%= n %></option>
+        <% }) %>
+      </select>
+    </label>
+  </div>
+</div>

@@ -1,0 +1,24 @@
+<div class="page">
+  <header class="pageHeader">
+    <div>
+      <h1 class="pageHeader__title">Global search</h1>
+      <p class="pageHeader__desc">Find members, payments, and subscriptions by ID, email, or reference.</p>
+    </div>
+  </header>
+  <form class="panel" method="get" action="/admin/search">
+    <div class="panel__body" style="display:flex;gap:12px;">
+      <input class="input" type="search" name="q" value="<%= q || '' %>" placeholder="Search…" required minlength="2">
+      <button class="btn btn--primary" type="submit">Search</button>
+    </div>
+  </form>
+  <% if (q) { %>
+  <div style="display:grid;gap:16px;margin-top:16px;">
+    <section class="panel"><div class="panel__head"><h3 class="panel__title">Users</h3></div>
+      <div class="panel__body"><% if (!users.length) { %>None<% } else { %><ul><% users.forEach(u => { %><li><a href="/admin/users/<%= u.id %>"><%= u.name %></a> — <%= u.email %></li><% }) %></ul><% } %></div>
+    </section>
+    <section class="panel"><div class="panel__head"><h3 class="panel__title">Transactions</h3></div>
+      <div class="panel__body"><% if (!txns.length) { %>None<% } else { %><ul><% txns.forEach(t => { %><li><a href="/admin/transactions/<%= t.id %>"><%= t.order_id %></a> — <%= t.status %></li><% }) %></ul><% } %></div>
+    </section>
+  </div>
+  <% } %>
+</div>

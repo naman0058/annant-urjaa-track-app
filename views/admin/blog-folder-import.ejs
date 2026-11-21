@@ -1,0 +1,185 @@
+<%
+  const cfg = config || {};
+  const subdir = (scan && scan.subdir) || cfg.subdir || '.';
+  const summary = scan && scan.summary ? scan.summary : null;
+  const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+%>
+<div class="page importStudio__page" data-blog-import data-import-studio data-folder-import data-csrf="<%= csrfToken %>" data-scan-id="<%= typeof scanId !== 'undefined' ? (scanId || '') : '' %>" data-source-label="<%= scan && scan.configuredLabel ? scan.configuredLabel : '' %>" data-source-meta="<%= summary ? summary.supported + ' supported' : '' %>">
+  <%- include('../partials/admin/import-studio-header', { scan, blogAdmin: ba }) %>
+
+  <% if (!importDir) { %>
+    <section class="panel panel--compact importStudio__shell">
+      <div class="panel__body panel__body--tight">
+        <p class="folderImportAlert">Set <code class="mono">BLOG_IMPORT_DIR</code> in the server environment.</p>
+      </div>
+    </section>
+  <% } else { %>
+
+  <div class="importStudio__grid">
+    <section class="panel panel--compact importStudio__workspace" aria-label="Import workflow">
+      <div class="importStudio__workspaceHead">
+        <nav class="importStudio__progress" aria-label="Import steps">
+          <ol class="importStudio__steps importStudio__steps--bar" id="importStudioSteps">
+            <% ['Scan','Select','AI','Estimate','Start'].forEach((label, i) => { %>
+              <li class="importStudio__step" data-step="<%= i + 1 %>">
+                <span class="importStudio__stepTrack"><span class="importStudio__stepDot"></span></span>
+                <span class="importStudio__stepLabel"><%= label %></span>
+              </li>
+            <% }) %>
+          </ol>
+        </nav>
+        <p class="importStudio__stepHint cellMuted" id="importStudioStepHint"></p>
+      </div>
+
+      <div class="importStudio__workspaceBody">
+        <section class="importStudio__panel" data-step-panel="1">
+          <div class="importStudio__sectionIntro">
+            <h2 class="importStudio__panelTitle">Scan source folder</h2>
+            <p class="cellMuted">Reads files from your configured import directory on the server.</p>
+          </div>
+          <form id="importScanForm" class="importStudio__scanRow">
+            <%- include('../partials/csrf-field') %>
+            <label class="field importStudio__scanField">
+              <span class="field__label">Subfolder</span>
+              <input class="input input--compact" name="subdir" id="importSubdir" value="<%= subdir %>" placeholder="." autocomplete="off">
+            </label>
+            <label class="field field--checkbox importStudio__scanCheck">
+              <input type="checkbox" name="nested" value="1" id="importNested" checked>
+              <span class="field__label">Include nested</span>
+            </label>
+            <button class="btn btn--primary" type="submit" id="importScanBtn">Scan folder</button>
+          </form>
+          <p class="importStudio__scanStatus cellMuted" id="importScanStatus" role="status"></p>
+          <div class="importStudio__metrics importStudio__metrics--scan" id="importSummaryKpis" <%= summary ? '' : 'hidden' %>>
+            <button type="button" class="importStudio__stat" data-summary-filter="supported" title="Files not yet imported">
+              <span class="importStudio__statLabel">Ready to import</span>
+              <span class="importStudio__statValue mono" id="kpiSupported"><%= summary ? (summary.eligible ?? summary.supported) : 0 %></span>
+            </button>
+            <button type="button" class="importStudio__stat" data-summary-filter="skipped" data-filter-open="importSkippedDrawer">
+              <span class="importStudio__statLabel">Skipped</span>
+              <span class="importStudio__statValue mono" id="kpiSkipped"><%= summary ? summary.skipped : 0 %></span>
+            </button>
+            <button type="button" class="importStudio__stat" data-summary-filter="alreadyImported">
+              <span class="importStudio__statLabel">Already imported</span>
+              <span class="importStudio__statValue mono" id="kpiImported"><%= summary ? summary.alreadyImported : 0 %></span>
+            </button>
+            <div class="importStudio__stat importStudio__stat--highlight">
+              <span class="importStudio__statLabel">Selected</span>
+              <span class="importStudio__statValue mono" id="kpiSelected">0</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="importStudio__panel" data-step-panel="2" hidden>
+          <div class="importStudio__panelBar">
+            <div>
+              <h2 class="importStudio__panelTitle">Select documents</h2>
+              <p class="importStudio__panelSub cellMuted">Supported files only. Already-imported items are excluded.</p>
+            </div>
+            <button type="button" class="btn btn--ghost btn--mini" data-filter-open="importFileFilters">Filters</button>
+          </div>
+          <input type="hidden" id="importFileSearch" value="">
+          <input type="hidden" id="importStatusFilter" value="all">
+          <div class="blogImportTableWrap importStudio__tableWrap">
+            <table class="table table--dashboard table--compact table--blogImportFiles" id="importFileTable">
+              <thead>
+                <tr>
+                  <th class="col-check"><span class="sr-only">Select</span></th>
+                  <th scope="col">Filename</th>
+                  <th scope="col">Type</th>
+                  <th class="col-numeric" scope="col">Size</th>
+                  <th scope="col">Status</th>
+                  <th class="col-actions"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="importFileTableBody"></tbody>
+            </table>
+          </div>
+          <div class="reportTxPager importStudio__pager" id="importPager"></div>
+        </section>
+
+        <section class="importStudio__panel" data-step-panel="3" hidden>
+          <div class="importStudio__panelBar">
+            <div>
+              <h2 class="importStudio__panelTitle">AI configuration</h2>
+              <p class="importStudio__panelSub cellMuted">Processing mode, language, tone, and publish behavior.</p>
+            </div>
+            <button type="button" class="btn btn--ghost btn--mini" data-filter-open="importAiDrawer">Edit</button>
+          </div>
+          <div class="importStudio__configGrid" id="importAiConfigDl">
+            <div class="importStudio__configItem"><span class="importStudio__configKey">Mode</span><span class="importStudio__configVal" id="importAiMode">—</span></div>
+            <div class="importStudio__configItem"><span class="importStudio__configKey">Language</span><span class="importStudio__configVal" id="importAiLang">—</span></div>
+            <div class="importStudio__configItem"><span class="importStudio__configKey">Tone</span><span class="importStudio__configVal" id="importAiTone">—</span></div>
+            <div class="importStudio__configItem"><span class="importStudio__configKey">Model</span><span class="importStudio__configVal mono" id="importAiModel">—</span></div>
+            <div class="importStudio__configItem importStudio__configItem--wide"><span class="importStudio__configKey">After import</span><span class="importStudio__configVal" id="importAiPublish">—</span></div>
+          </div>
+        </section>
+
+        <section class="importStudio__panel" data-step-panel="4" hidden>
+          <div class="importStudio__panelBar">
+            <div>
+              <h2 class="importStudio__panelTitle">Cost estimate</h2>
+              <p class="importStudio__panelSub cellMuted">OpenAI token usage for the current selection.</p>
+            </div>
+            <button type="button" class="btn btn--ghost btn--mini" id="importRunEstimate">Recalculate</button>
+          </div>
+          <div id="importEstimateBody">
+            <p class="importStudio__loader cellMuted" id="importEstimatePending">Calculating estimate…</p>
+            <div class="importStudio__metrics importStudio__metrics--estimate" id="importEstimateMetrics" hidden>
+              <div class="importStudio__stat"><span class="importStudio__statLabel">Files</span><span class="importStudio__statValue mono" id="estFiles">—</span></div>
+              <div class="importStudio__stat"><span class="importStudio__statLabel">Input tokens</span><span class="importStudio__statValue mono" id="estIn">—</span></div>
+              <div class="importStudio__stat"><span class="importStudio__statLabel">Output tokens</span><span class="importStudio__statValue mono" id="estOut">—</span></div>
+              <div class="importStudio__stat importStudio__stat--highlight"><span class="importStudio__statLabel">Est. cost (USD)</span><span class="importStudio__statValue mono" id="estCost">—</span></div>
+            </div>
+            <p class="importStudio__finePrint cellMuted" id="importEstimateNote" hidden></p>
+          </div>
+        </section>
+
+        <section class="importStudio__panel importStudio__panel--confirm" data-step-panel="5" hidden>
+          <div class="importStudio__confirmLayout">
+            <div class="importStudio__confirmPrimary">
+              <h2 class="importStudio__panelTitle">Review and start</h2>
+              <p class="importStudio__panelSub cellMuted">Queue a background job to process your selection.</p>
+              <div class="importStudio__metrics importStudio__metrics--confirm" id="importConfirmMetrics">
+                <div class="importStudio__stat"><span class="importStudio__statLabel">Documents</span><span class="importStudio__statValue mono" id="confirmFiles">0</span></div>
+                <div class="importStudio__stat"><span class="importStudio__statLabel">Model</span><span class="importStudio__statValue mono" id="confirmModel">—</span></div>
+                <div class="importStudio__stat importStudio__stat--highlight"><span class="importStudio__statLabel">Est. cost</span><span class="importStudio__statValue mono" id="confirmCost">—</span></div>
+              </div>
+              <p class="importStudio__notice cellMuted" id="importConfirmPublishNote"></p>
+              <label class="field field--checkbox importStudio__authorize">
+                <input type="checkbox" id="importConfirmCost" value="1">
+                <span class="field__label">I authorize this job and accept the estimated API cost</span>
+              </label>
+            </div>
+            <div class="importStudio__confirmSecondary">
+              <h3 class="importStudio__railTitle">Policies</h3>
+              <ul class="importStudio__policyList">
+                <li>Billing uses your configured OpenAI API key.</li>
+                <li>Duplicate content is skipped using file hash.</li>
+                <li>You can pause or cancel from Import history.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="importStudio__workspaceFoot">
+        <div class="importStudio__footMeta">
+          <span class="importStudio__footCount" id="importFootCount">0 documents selected</span>
+          <span class="importStudio__footHint cellMuted" id="importFootHint"></span>
+        </div>
+        <div class="importStudio__footActions">
+          <button type="button" class="btn btn--ghost btn--mini" id="importStepBack" disabled>Back</button>
+          <button type="button" class="btn btn--primary btn--mini" id="importStepNext">Continue</button>
+        </div>
+      </footer>
+    </section>
+
+    <%- include('../partials/admin/import-studio-rail', { blogAdmin: ba }) %>
+  </div>
+
+  <%- include('../partials/admin/import-studio-drawers', { cfg, model, openaiConfigured, defaultAuthor, importAutoPublishDefault: typeof importAutoPublishDefault !== 'undefined' ? importAutoPublishDefault : true }) %>
+
+  <% } %>
+</div>
+<script src="/js/admin-import-studio.js?v=7" defer></script>
