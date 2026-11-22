@@ -77,12 +77,92 @@ function aspectRatioOk(width, height) {
   return Math.abs(r - target) <= blogMediaConfig.aspectTolerance;
 }
 
+let sharpLoadLogged = false;
+
 async function getSharp() {
   try {
     return require('sharp');
-  } catch {
+  } catch (err) {
+    if (!sharpLoadLogged) {
+      sharpLoadLogged = true;
+      console.warn(
+        'blog images: sharp not available — storing originals without resize/WebP.',
+        err.message || ''
+      );
+    }
     return null;
   }
+}
+
+function readBasicDimensions(buffer, type) {
+  try {
+    if (type === 'png' && buffer.length >= 24) {
+      return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+    }
+    if (type === 'gif' && buffer.length >= 10) {
+      return { width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8) };
+    }
+    if (type === 'jpeg') {
+      let offset = 2;
+      while (offset < buffer.length) {
+        if (buffer[offset] !== 0xff) break;
+        const marker = buffer[offset + 1];
+        const len = buffer.readUInt16BE(offset + 2);
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          const height = buffer.readUInt16BE(offset + 5);
+          const width = buffer.readUInt16BE(offset + 7);
+          return { width, height };
+        }
+        offset += 2 + len;
+      }
+    }
+    if (type === 'webp' && buffer.length >= 30) {
+      const riff = buffer.toString('ascii', 12, 16);
+      if (riff === 'VP8 ') {
+        return {
+          width: buffer.readUInt16LE(26) & 0x3fff,
+          height: buffer.readUInt16LE(28) & 0x3fff,
+        };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { width: null, height: null };
+}
+
+function storeOriginalOnly({ buffer, type, postId }) {
+  const { width, height } = readBasicDimensions(buffer, type);
+  if (width && height) {
+    if (width < blogMediaConfig.minWidth || height < blogMediaConfig.minHeight) {
+      const err = new Error(
+        `Image too small (min ${blogMediaConfig.minWidth}×${blogMediaConfig.minHeight})`
+      );
+      err.code = 'IMAGE_TOO_SMALL';
+      throw err;
+    }
+  }
+  const baseName = safeFilename(postId, type);
+  const absOriginal = path.join(UPLOAD_ROOT, baseName);
+  writeFileSecure(absOriginal, buffer);
+  const variants = {
+    original: publicUrl(baseName),
+    width,
+    height,
+    aspect: width && height ? Math.round((width / height) * 1000) / 1000 : null,
+    aspectOk: aspectRatioOk(width, height),
+    recommendedAspect: '16:9',
+    mime: mimeForType(type),
+    processor: 'original-only',
+  };
+  return {
+    featured_image: variants.original,
+    featured_image_variants: variants,
+    featured_image_alt: null,
+    aspectWarning: variants.aspectOk
+      ? null
+      : 'Image aspect ratio is not close to 16:9 — consider cropping for editorial consistency.',
+  };
 }
 
 function validateUpload({ buffer, mimetype, originalname }) {
@@ -137,9 +217,7 @@ async function processAndStore({ buffer, mimetype, originalname, postId }) {
 
   const sharp = await getSharp();
   if (!sharp) {
-    const err = new Error('Image processor is not available on this server');
-    err.code = 'IMAGE_PROCESSOR';
-    throw err;
+    return storeOriginalOnly({ buffer, type, postId });
   }
   let width;
   let height;
