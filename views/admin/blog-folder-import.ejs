@@ -3,8 +3,10 @@
   const subdir = (scan && scan.subdir) || cfg.subdir || '.';
   const summary = scan && scan.summary ? scan.summary : null;
   const ba = typeof blogAdmin !== 'undefined' ? blogAdmin : {};
+  const folderChoices = (typeof importFolders !== 'undefined' && importFolders.folders) ? importFolders.folders : [];
+  const activeImportRoot = (typeof currentImportRoot !== 'undefined' && currentImportRoot) ? currentImportRoot : (importFolders && importFolders.defaultRootRel) ? importFolders.defaultRootRel : '.';
 %>
-<div class="page importStudio__page" data-blog-import data-import-studio data-folder-import data-csrf="<%= csrfToken %>" data-scan-id="<%= typeof scanId !== 'undefined' ? (scanId || '') : '' %>" data-source-label="<%= scan && scan.configuredLabel ? scan.configuredLabel : '' %>" data-source-meta="<%= summary ? summary.supported + ' supported' : '' %>">
+<div class="page importStudio__page" data-blog-import data-import-studio data-folder-import data-csrf="<%= csrfToken %>" data-scan-id="<%= typeof scanId !== 'undefined' ? (scanId || '') : '' %>" data-import-root="<%= activeImportRoot %>" data-source-label="<%= scan && scan.configuredLabel ? scan.configuredLabel : '' %>" data-source-meta="<%= summary ? summary.supported + ' supported' : '' %>">
   <%- include('../partials/admin/import-studio-header', { scan, blogAdmin: ba }) %>
 
   <% if (!importDir) { %>
@@ -35,10 +37,21 @@
         <section class="importStudio__panel" data-step-panel="1">
           <div class="importStudio__sectionIntro">
             <h2 class="importStudio__panelTitle">Scan source folder</h2>
-            <p class="cellMuted">Reads files from your configured import directory on the server.</p>
+            <p class="cellMuted">Pick a blog source folder, then scan for supported documents.</p>
           </div>
           <form id="importScanForm" class="importStudio__scanRow">
             <%- include('../partials/csrf-field') %>
+            <% if (folderChoices.length) { %>
+            <label class="field importStudio__scanField importStudio__scanField--folder">
+              <span class="field__label">Source folder</span>
+              <select class="input input--compact" name="importRoot" id="importRootSelect" aria-describedby="importRootHint">
+                <% folderChoices.forEach((f) => { %>
+                  <option value="<%= f.value %>" <%= String(f.value) === String(activeImportRoot) ? 'selected' : '' %>><%= f.label %></option>
+                <% }) %>
+              </select>
+            </label>
+            <p class="importStudio__fieldHint cellMuted" id="importRootHint">Under <span class="mono"><%= importFolders.base ? importFolders.base.replace(/\\/g, '/') : 'import base' %></span></p>
+            <% } %>
             <label class="field importStudio__scanField">
               <span class="field__label">Subfolder</span>
               <input class="input input--compact" name="subdir" id="importSubdir" value="<%= subdir %>" placeholder="." autocomplete="off">
@@ -182,4 +195,4 @@
 
   <% } %>
 </div>
-<script src="/js/admin-import-studio.js?v=7" defer></script>
+<script src="/js/admin-import-studio.js?v=8" defer></script>

@@ -932,6 +932,9 @@ router.post(
 
 
 
+const blogMobileApi = require('./api/blog');
+router.use(blogMobileApi);
+
 router.get("/account/:id", async (req, res) => {
   try {
     const userId = req.params.id;

@@ -27,6 +27,8 @@ const blogAiConfig = Object.freeze({
   maxRetries: intEnv('OPENAI_MAX_RETRIES', 3, { min: 0, max: 8 }),
   requestTimeoutMs: intEnv('OPENAI_REQUEST_TIMEOUT', 180000, { min: 15000, max: 600000 }),
   importDir: process.env.BLOG_IMPORT_DIR || '',
+  /** Parent of import folders (defaults to parent of BLOG_IMPORT_DIR). e.g. public/Blogs */
+  importBaseDir: process.env.BLOG_IMPORT_BASE_DIR || '',
   defaultAuthor: process.env.BLOG_DEFAULT_AUTHOR || 'Editorial Team',
   siteBaseUrl: (process.env.SITE_BASE_URL || process.env.PUBLIC_BASE_URL || 'http://localhost:3000')
     .replace(/\/$/, ''),

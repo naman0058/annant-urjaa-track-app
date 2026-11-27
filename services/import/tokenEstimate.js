@@ -31,12 +31,12 @@ function heuristicPlainChars(entry) {
   return Math.min(MAX_PLAIN_CHARS, size);
 }
 
-async function plainCharsForEntry(entry, { tryExtract = false } = {}) {
+async function plainCharsForEntry(entry, { tryExtract = false, scanRoot } = {}) {
   if (!tryExtract || !entry.relativePath) {
     return { chars: heuristicPlainChars(entry), quality: 'heuristic' };
   }
   try {
-    const abs = resolveRelativeFile(entry.relativePath);
+    const abs = resolveRelativeFile(entry.relativePath, scanRoot);
     const buf = fs.readFileSync(abs);
     const slice = buf.length > EXTRACT_CAP_BYTES ? buf.subarray(0, EXTRACT_CAP_BYTES) : buf;
     const extracted = await extractContent({ buffer: slice, fileName: entry.relativePath });
@@ -50,14 +50,14 @@ async function plainCharsForEntry(entry, { tryExtract = false } = {}) {
   return { chars: heuristicPlainChars(entry), quality: 'heuristic' };
 }
 
-async function buildFileEstimates(entries, { quickExtract = true } = {}) {
+async function buildFileEstimates(entries, { quickExtract = true, scanRoot } = {}) {
   const files = [];
   let qualities = new Set();
   let idx = 0;
   for (const entry of entries) {
     const tryExtract = quickExtract && idx < QUICK_EXTRACT_LIMIT;
     idx += 1;
-    const { chars, quality } = await plainCharsForEntry(entry, { tryExtract });
+    const { chars, quality } = await plainCharsForEntry(entry, { tryExtract, scanRoot });
     qualities.add(quality);
     files.push({
       relativePath: entry.relativePath,

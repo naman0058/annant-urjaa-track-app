@@ -79,6 +79,13 @@ async function listPosts(db, { q, status, page, limit, sort, dir }) {
   };
 }
 
+async function countPublishedPosts(db) {
+  const [[row]] = await db.query(
+    `SELECT COUNT(*) AS total FROM blog_posts WHERE ${NOT_DELETED} AND status = 'published'`
+  );
+  return Number(row?.total) || 0;
+}
+
 async function getPostById(db, id) {
   const [rows] = await db.query(
     `SELECT * FROM blog_posts WHERE id = :id AND ${NOT_DELETED} LIMIT 1`,
@@ -527,6 +534,7 @@ async function listPublished(db, { page, limit }) {
 
 module.exports = {
   listPosts,
+  countPublishedPosts,
   getPostById,
   getPostBySlug,
   getTrashedPostById,

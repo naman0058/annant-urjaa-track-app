@@ -35,13 +35,15 @@ function resolveAutoPublish(body = {}) {
   return blogAiConfig.importAutoPublish;
 }
 
-async function scanForAdmin(db, { subdir, nested }) {
+async function scanForAdmin(db, { subdir, nested, importRootRel }) {
   const scan = await scanImportFolder({
     subdir: subdir || '.',
     nested: nested !== false,
+    importRootRel,
     db,
   });
   scan.subdir = subdir || '.';
+  scan.importRootRel = importRootRel;
   scan.configuredLabel = friendlySourceLabel(subdir, scan.configuredRoot);
   return scan;
 }
@@ -69,7 +71,10 @@ async function estimateSelection(scan, selectedPaths, model, opts = {}) {
       assumptions: 'No eligible files selected.',
     };
   }
-  return estimateEntries(entries, model || blogAiConfig.model, opts);
+  return estimateEntries(entries, model || blogAiConfig.model, {
+    ...opts,
+    scanRoot: scan.rootPath,
+  });
 }
 
 const { mapImportModeToAi } = require('./importMode');

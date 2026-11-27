@@ -234,12 +234,14 @@ router.get('/', requireAuth, async (req, res) => {
       limit,
     });
     const queuedAi = await blogAiService.countQueued(req.db).catch(() => 0);
+    const publishedCount = await blogRepository.countPublishedPosts(req.db).catch(() => 0);
     res.render('admin/blog-list', {
       title: 'Blog',
       posts: rows,
       pagination,
       filters,
       queuedAi,
+      publishedCount,
       activeFilterCount: countBlogActiveFilters(filters),
       datasetEmpty: Number(pagination.total) === 0 && !blogListHasUserFilters(filters),
     });
@@ -252,6 +254,7 @@ router.get('/', requireAuth, async (req, res) => {
       pagination: { page: 1, limit: 20, total: 0 },
       filters,
       queuedAi: 0,
+      publishedCount: 0,
       activeFilterCount: countBlogActiveFilters(filters),
       datasetEmpty: false,
     });

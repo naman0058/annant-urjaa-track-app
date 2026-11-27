@@ -33,7 +33,7 @@ function pruneScans(session) {
   }
 }
 
-function saveScan(session, scan, { subdir, nested }) {
+function saveScan(session, scan, { subdir, nested, importRootRel }) {
   if (!session.blogFolderScans) session.blogFolderScans = {};
   const scanId = crypto.randomBytes(8).toString('hex');
   const createdAt = Date.now();
@@ -43,6 +43,7 @@ function saveScan(session, scan, { subdir, nested }) {
     createdAt,
     subdir: subdir || '.',
     nested: nested !== false,
+    importRootRel: importRootRel ?? scan.importRootRel,
     configuredLabel: friendlySourceLabel(subdir, scan.configuredRoot),
   };
   session.blogFolderScanId = scanId;

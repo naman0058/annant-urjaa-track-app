@@ -1113,6 +1113,14 @@
   line-height: 1.2;
 }
 
+.admin-app .pageHeader__title .pageHeader__count {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--it-text-muted);
+  margin-left: 6px;
+  vertical-align: baseline;
+}
+
 .admin-app .pageHeader--compact .pageHeader__period {
   margin-top: 2px;
   font-size: 12px;
@@ -3918,6 +3926,16 @@
   flex: 1 1 160px;
   min-width: 0;
   margin: 0;
+}
+
+.admin-app .importStudio__scanField--folder {
+  flex: 1 1 200px;
+}
+
+.admin-app .importStudio__fieldHint {
+  flex: 1 1 100%;
+  margin: -4px 0 0;
+  font-size: 12px;
 }
 
 .admin-app .importStudio__scanCheck {

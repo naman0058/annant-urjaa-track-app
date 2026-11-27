@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { blogAiConfig } = require('../../config/blogAiConfig');
-const { resolveInsideImportRoot, isSafeRegularFile } = require('./importPath');
+const { resolveInsideImportRoot, getImportRoot, isSafeRegularFile } = require('./importPath');
 const {
   isSupportedExtension,
   unsupportedReason,
@@ -113,12 +113,15 @@ async function markPreviouslyImported(db, entries) {
  */
 async function scanImportFolder(opts = {}) {
   const nested = opts.nested !== false && blogAiConfig.importNestedDirs;
-  const root = resolveInsideImportRoot(opts.subdir || '.');
+  const importRootRel = opts.importRootRel;
+  const root = resolveInsideImportRoot(opts.subdir || '.', importRootRel);
+  const configuredRoot = getImportRoot(importRootRel);
 
   if (!fs.existsSync(root)) {
     return {
       rootPath: root,
-      configuredRoot: blogAiConfig.importDir,
+      configuredRoot,
+      importRootRel: importRootRel ?? undefined,
       entries: [],
       summary: { total: 0, supported: 0, unsupported: 0, skipped: 0 },
       error: 'Import directory does not exist',
@@ -138,7 +141,7 @@ async function scanImportFolder(opts = {}) {
     for (const d of list) {
       if (shouldSkipName(d.name)) {
         entries.push({
-          relativePath: toPosixRel(resolveInsideImportRoot(opts.subdir || '.'), path.join(dir, d.name)),
+          relativePath: toPosixRel(resolveInsideImportRoot(opts.subdir || '.', importRootRel), path.join(dir, d.name)),
           status: 'skipped',
           reason: 'Hidden or temporary file',
         });
@@ -151,7 +154,7 @@ async function scanImportFolder(opts = {}) {
       }
       if (!d.isFile()) continue;
 
-      const relRoot = resolveInsideImportRoot(opts.subdir || '.');
+      const relRoot = resolveInsideImportRoot(opts.subdir || '.', importRootRel);
       const relativePath = toPosixRel(relRoot, abs);
       if (seen.has(relativePath)) continue;
       seen.add(relativePath);
@@ -217,7 +220,8 @@ async function scanImportFolder(opts = {}) {
 
   return {
     rootPath: root,
-    configuredRoot: blogAiConfig.importDir,
+    configuredRoot,
+    importRootRel: importRootRel ?? undefined,
     nested,
     entries,
     previouslyImported,

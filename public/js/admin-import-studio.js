@@ -96,7 +96,7 @@
   }
 
   const FOOT_HINTS = [
-    'Configure the folder path on the server via BLOG_IMPORT_DIR.',
+    'Choose a source folder (e.g. 1 or 2), then scan. Default folder comes from BLOG_IMPORT_DIR.',
     'Row menu (•••) opens extraction preview.',
     'Adjust publish behavior under AI settings.',
     'Estimates depend on file content length.',
@@ -421,7 +421,9 @@
 
   async function openPreview(path) {
     const drawer = document.getElementById('importPreviewDrawer');
-    const res = await fetch(`/admin/blogs/import/preview.json?path=${encodeURIComponent(path)}`, {
+    const res = await fetch(
+      `/admin/blogs/import/preview.json?path=${encodeURIComponent(path)}&scanId=${encodeURIComponent(scanId)}`,
+      {
       credentials: 'same-origin',
     });
     const data = await res.json();
@@ -504,6 +506,11 @@
     el.addEventListener('click', () => {
       if (typeof window.setDrawerOpen === 'function') window.setDrawerOpen('importPreviewDrawer', false);
     });
+  });
+
+  document.getElementById('importRootSelect')?.addEventListener('change', () => {
+    const status = document.getElementById('importScanStatus');
+    if (status) status.textContent = 'Source folder changed — click Scan folder to load files from this folder.';
   });
 
   if (root.dataset.sourceLabel) {

@@ -89,7 +89,7 @@ async function processOneItem(db, job, item) {
   const rel = item.relative_path || item.file_name;
   let absPath;
   try {
-    absPath = resolveRelativeFile(rel);
+    absPath = resolveRelativeFile(rel, job.source_directory);
   } catch (e) {
     await failItem(db, item, e.message);
     return;

@@ -25,7 +25,11 @@ const {
   getImportItem,
 } = require('../../services/import/folderImportRepository');
 const { processImportBatch } = require('../../services/import/folderImportProcessor');
-const { resolveRelativeFile } = require('../../services/import/importPath');
+const {
+  resolveRelativeFile,
+  listImportFolderChoices,
+  getDefaultImportRootRel,
+} = require('../../services/import/importPath');
 const { extractContent, basicSanitizeHtml, extensionOf } = require('../../services/import/contentExtractor');
 const { stripHtml } = require('../../services/ai/sourceSanitizer');
 const { sanitizePublicHtml } = require('../../utils/sanitizePublicHtml');
@@ -58,9 +62,19 @@ function scanFromSession(req, scanId) {
 router.get('/import', requireAuth, canWrite, async (req, res) => {
   const scanId = req.session.blogFolderScanId || null;
   const scan = scanFromSession(req, scanId);
+  let importFolders = { folders: [], defaultRootRel: '.', base: '' };
+  try {
+    if (blogAiConfig.importDir) importFolders = listImportFolderChoices();
+  } catch (_) {
+    /* ignore */
+  }
+  const currentImportRoot =
+    req.session.blogImportRootRel || scan?.importRootRel || importFolders.defaultRootRel || '.';
   res.render('admin/blog-folder-import', {
     title: 'Import Blogs',
     importDir: blogAiConfig.importDir,
+    importFolders,
+    currentImportRoot,
     model: blogAiConfig.model,
     defaultAuthor: blogAiConfig.defaultAuthor,
     openaiConfigured: !!blogAiConfig.openaiApiKey,
@@ -103,8 +117,18 @@ async function handleScan(req, res) {
     }
     const subdir = String(req.body.subdir || '.').trim();
     const nested = req.body.nested === '1' || req.body.nested === true;
-    const scan = await scanForAdmin(req.db, { subdir, nested });
-    const scanId = saveScanSession(req.session, scan, { subdir, nested });
+    const importRoot = String(req.body.importRoot || req.session.blogImportRootRel || '').trim();
+    let importRootRel;
+    try {
+      importRootRel = importRoot || getDefaultImportRootRel();
+    } catch (e) {
+      if (wantsJson(req)) return res.status(400).json({ error: e.message });
+      req.flash('error', e.message);
+      return res.redirect('/admin/blogs/import');
+    }
+    req.session.blogImportRootRel = importRootRel;
+    const scan = await scanForAdmin(req.db, { subdir, nested, importRootRel });
+    const scanId = saveScanSession(req.session, scan, { subdir, nested, importRootRel });
     req.session.blogFolderScan = scan;
     const payload = {
       ok: true,
@@ -149,11 +173,23 @@ router.get('/import/scan/:scanId/entries', requireAuth, canWrite, (req, res) => 
   res.json({ rows: mapped, pagination, summary: scan.summary, scanId: scan.scanId || req.params.scanId });
 });
 
+router.get('/import/folders', requireAuth, canWrite, (req, res) => {
+  try {
+    if (!blogAiConfig.importDir) {
+      return res.json({ folders: [], defaultRootRel: '.', base: '' });
+    }
+    return res.json(listImportFolderChoices());
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/import/preview.json', requireAuth, canWrite, async (req, res) => {
   const rel = String(req.query.path || '').trim();
   if (!rel) return res.status(400).json({ error: 'Missing path' });
+  const scan = scanFromSession(req, req.query.scanId || req.session.blogFolderScanId);
   try {
-    const abs = resolveRelativeFile(rel);
+    const abs = resolveRelativeFile(rel, scan?.rootPath);
     const stat = fs.statSync(abs);
     const buf = fs.readFileSync(abs);
     const extracted = await extractContent({ buffer: buf, fileName: rel });
@@ -189,8 +225,9 @@ router.get('/import/preview.json', requireAuth, canWrite, async (req, res) => {
 router.get('/import/preview', requireAuth, canWrite, async (req, res) => {
   const rel = String(req.query.path || '').trim();
   if (!rel) return res.status(400).send('Missing path');
+  const scan = scanFromSession(req, req.query.scanId || req.session.blogFolderScanId);
   try {
-    const abs = resolveRelativeFile(rel);
+    const abs = resolveRelativeFile(rel, scan?.rootPath);
     const buf = fs.readFileSync(abs);
     const extracted = await extractContent({ buffer: buf, fileName: rel });
     if (!extracted.ok) return res.status(400).send(extracted.reason);
@@ -340,7 +377,8 @@ router.get('/jobs/:id/items/:itemId/compare.json', requireAuth, canWrite, async 
   const item = await getImportItem(req.db, jobId, itemId);
   if (!item) return res.status(404).json({ error: 'Not found' });
   try {
-    const abs = resolveRelativeFile(item.relative_path || item.file_name);
+    const job = await getJob(req.db, jobId);
+    const abs = resolveRelativeFile(item.relative_path || item.file_name, job?.source_directory);
     const buf = fs.readFileSync(abs);
     const extracted = await extractContent({ buffer: buf, fileName: item.relative_path || item.file_name });
     let sourcePlain = extracted.ok ? extracted.plain || stripHtml(extracted.content_html) : '';
